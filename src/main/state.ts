@@ -1,12 +1,6 @@
 import Store from "electron-store";
 
-import {
-  getChatWindow,
-  getMainWindow,
-  setFont,
-  setFontSize,
-  applyAssistantWindowBehavior,
-} from "./windows";
+import { getChatWindow, getMainWindow, setFont, setFontSize } from "./windows";
 import { IpcMessages } from "../ipc-messages";
 import { getModelManager, getModelPath, isModelOnDisk } from "./models";
 import { EMPTY_SHARED_STATE, SettingsState, SharedState } from "../sharedState";
@@ -126,13 +120,11 @@ export class StateManager {
     }
 
     if (oldValue.clippyAlwaysOnTop !== newValue.clippyAlwaysOnTop) {
-      const mainWindow = getMainWindow();
-      if (mainWindow) applyAssistantWindowBehavior(mainWindow, true);
+      getMainWindow()?.setAlwaysOnTop(newValue.clippyAlwaysOnTop);
     }
 
     if (oldValue.chatAlwaysOnTop !== newValue.chatAlwaysOnTop) {
-      const chatWindow = getChatWindow();
-      if (chatWindow) applyAssistantWindowBehavior(chatWindow, false);
+      getChatWindow()?.setAlwaysOnTop(newValue.chatAlwaysOnTop);
     }
 
     if (oldValue.defaultFontSize !== newValue.defaultFontSize) {
