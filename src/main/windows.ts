@@ -39,6 +39,7 @@ export async function createMainWindow() {
     transparent: true,
     hasShadow: false,
     frame: false,
+    type: "toolbar",
     titleBarStyle: "hidden",
     acceptFirstMouse: true,
     backgroundMaterial: "none",
@@ -47,6 +48,7 @@ export async function createMainWindow() {
     roundedCorners: false,
     thickFrame: false,
     title: "Clippy",
+    skipTaskbar: true,
     alwaysOnTop: settings.clippyAlwaysOnTop,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -80,6 +82,7 @@ export function setupWindowListener() {
 
       getLogger().info(`Creating window (${isMainWindow ? "main" : "child"})`);
 
+      setupAssistantWindowBehavior(browserWindow, isMainWindow);
       setupWindowOpenHandler(browserWindow);
       setupNavigationHandler(browserWindow);
 
@@ -133,6 +136,8 @@ export function setupWindowOpenHandler(browserWindow: BrowserWindow) {
       action: "allow",
       overrideBrowserWindowOptions: {
         frame: false,
+        type: "toolbar",
+        skipTaskbar: true,
         x: newWindowPosition?.x,
         y: newWindowPosition?.y,
         roundedCorners: false,
@@ -143,6 +148,39 @@ export function setupWindowOpenHandler(browserWindow: BrowserWindow) {
       },
     };
   });
+}
+
+/**
+ * Keep Clippy's assistant windows above normal windows and out of the taskbar.
+ * Some Linux window managers discard these hints when a window is hidden or
+ * restored, so reapply them whenever the window becomes active again.
+ */
+export function setupAssistantWindowBehavior(
+  browserWindow: BrowserWindow,
+  isMainWindow: boolean = !browserWindow.getParentWindow(),
+) {
+  const applyWindowBehavior = () =>
+    applyAssistantWindowBehavior(browserWindow, isMainWindow);
+
+  applyWindowBehavior();
+  browserWindow.on("show", applyWindowBehavior);
+  browserWindow.on("restore", applyWindowBehavior);
+  browserWindow.on("focus", applyWindowBehavior);
+}
+
+export function applyAssistantWindowBehavior(
+  browserWindow: BrowserWindow,
+  isMainWindow: boolean = !browserWindow.getParentWindow(),
+) {
+  if (browserWindow.isDestroyed()) return;
+
+  const settings = getStateManager().store.get("settings");
+  const shouldStayOnTop = isMainWindow
+    ? settings.clippyAlwaysOnTop
+    : settings.chatAlwaysOnTop;
+
+  browserWindow.setSkipTaskbar(true);
+  browserWindow.setAlwaysOnTop(Boolean(shouldStayOnTop), "floating");
 }
 
 function setupNavigationHandler(browserWindow: BrowserWindow) {
