@@ -5,9 +5,11 @@ import { Chat } from "./Chat";
 import { Settings } from "./Settings";
 import { useBubbleView } from "../contexts/BubbleViewContext";
 import { Chats } from "./Chats";
+import { useChat } from "../contexts/ChatContext";
 
 export function Bubble() {
   const { currentView, setCurrentView } = useBubbleView();
+  const { startNewChat, status } = useChat();
   const [isMaximized, setIsMaximized] = useState(false);
 
   const containerStyle = {
@@ -62,6 +64,20 @@ export function Bubble() {
       <div className="app-drag title-bar">
         <div className="title-bar-text">Chat with Clippy</div>
         <div className="title-bar-controls app-no-drag">
+          <button
+            style={{
+              marginRight: "8px",
+              paddingLeft: "8px",
+              paddingRight: "8px",
+            }}
+            disabled={status === "responding" || status === "thinking"}
+            onClick={async () => {
+              await startNewChat();
+              setCurrentView("chat");
+            }}
+          >
+            New Chat
+          </button>
           <button
             style={{
               marginRight: "8px",
