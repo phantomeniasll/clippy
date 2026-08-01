@@ -4,7 +4,8 @@ import { Message } from "./Message";
 import { ChatInput } from "./ChatInput";
 import { ANIMATION_KEYS_BRACKETS } from "../clippy-animation-helpers";
 import { useChat } from "../contexts/ChatContext";
-import { electronAi } from "../clippyApi";
+import { clippyApi, electronAi } from "../clippyApi";
+import { useSharedState } from "../contexts/SharedStateContext";
 
 export type ChatProps = {
   style?: React.CSSProperties;
@@ -18,9 +19,18 @@ export function Chat({ style }: ChatProps) {
   const [lastRequestUUID, setLastRequestUUID] = useState<string>(
     crypto.randomUUID(),
   );
+  const { settings, models } = useSharedState();
+  const selectedModel = settings.selectedModel
+    ? models[settings.selectedModel]
+    : undefined;
+  const useMtpBackend = Boolean(settings.useMtp && selectedModel?.mtpMode);
 
   const handleAbortMessage = () => {
-    electronAi.abortRequest(lastRequestUUID);
+    if (useMtpBackend) {
+      void clippyApi.abortLlamaServerRequest(lastRequestUUID);
+    } else {
+      electronAi.abortRequest(lastRequestUUID);
+    }
   };
 
   const handleSendMessage = async (message: string) => {
@@ -43,15 +53,11 @@ export function Chat({ style }: ChatProps) {
       const requestUUID = crypto.randomUUID();
       setLastRequestUUID(requestUUID);
 
-      const response = await window.electronAi.promptStreaming(message, {
-        requestUUID,
-      });
-
       let fullContent = "";
       let filteredContent = "";
       let hasSetAnimationKey = false;
 
-      for await (const chunk of response) {
+      const consumeChunk = (chunk: string) => {
         if (fullContent === "") {
           setStatus("responding");
         }
@@ -73,6 +79,37 @@ export function Chat({ style }: ChatProps) {
         }
 
         setStreamingMessageContent(filteredContent);
+      };
+
+      if (useMtpBackend) {
+        const response = await clippyApi.llamaServerChat({
+          requestUUID,
+          systemPrompt: (settings.systemPrompt || "").replace(
+            "[LIST OF ANIMATIONS]",
+            ANIMATION_KEYS_BRACKETS.join(", "),
+          ),
+          topK: settings.topK,
+          temperature: settings.temperature,
+          messages: [
+            ...messages
+              .filter((item) => item.content)
+              .map((item) => ({
+                role:
+                  item.sender === "clippy"
+                    ? ("assistant" as const)
+                    : ("user" as const),
+                content: item.content || "",
+              })),
+            { role: "user", content: message },
+          ],
+        });
+        consumeChunk(response);
+      } else {
+        const response = await window.electronAi.promptStreaming(message, {
+          requestUUID,
+        });
+
+        for await (const chunk of response) consumeChunk(chunk);
       }
 
       // Once streaming is complete, add the full message to the messages array

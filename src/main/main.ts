@@ -13,6 +13,7 @@ import { getModelManager } from "./models";
 import { setupAutoUpdater } from "./update";
 import { setupAppMenu } from "./menu";
 import { IpcMessages } from "../ipc-messages";
+import { getLlamaServerManager } from "./llama-server";
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 let shouldOpenChatOnStart = process.argv.includes("--toggle-chat");
@@ -77,6 +78,8 @@ app.on("window-all-closed", () => {
     app.quit();
   }
 });
+
+app.on("before-quit", () => getLlamaServerManager().stopNow());
 
 app.on("activate", () => {
   // On OS X it's common to re-create a window in the app when the

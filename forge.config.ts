@@ -102,7 +102,6 @@ const config: ForgeConfig = {
     },
   },
   packagerConfig: {
-    electronVersion: process.env.ELECTRON_VERSION,
     electronZipDir: process.env.ELECTRON_ZIP_DIR,
     asar: {
       unpack: "**/node_modules/*node-llama-cpp*/**",
@@ -488,7 +487,9 @@ function getArch() {
   // If we're running in CI, we want to use the arch passed in
   // If someone is passing in a flag, we want to use that, too
   if (process.env.CI || process.argv.some((s) => s.includes("arch"))) {
-    return process.argv.some((s) => s.includes("--arch=arm64")) ? "arm64" : "x64";
+    return process.argv.some((s) => s.includes("--arch=arm64"))
+      ? "arm64"
+      : "x64";
   }
 
   return process.arch;

@@ -6,7 +6,7 @@ import { IpcMessages } from "../ipc-messages";
 import type { SharedState } from "../sharedState";
 
 import type { ClippyApi } from "./clippyApi";
-import { ChatWithMessages } from "../types/interfaces";
+import { ChatWithMessages, LlamaServerChatRequest } from "../types/interfaces";
 import { DebugState } from "../debugState";
 import { BubbleView } from "./contexts/BubbleViewContext";
 
@@ -44,6 +44,13 @@ const clippyApi: ClippyApi = {
     ipcRenderer.invoke(IpcMessages.REMOVE_MODEL_BY_NAME, name),
   deleteAllModels: () => ipcRenderer.invoke(IpcMessages.DELETE_ALL_MODELS),
   addModelFromFile: () => ipcRenderer.invoke(IpcMessages.ADD_MODEL_FROM_FILE),
+  startLlamaServer: (modelName: string) =>
+    ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_START, modelName),
+  stopLlamaServer: () => ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_STOP),
+  llamaServerChat: (request: LlamaServerChatRequest) =>
+    ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_CHAT, request),
+  abortLlamaServerRequest: (requestUUID: string) =>
+    ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_ABORT, requestUUID),
 
   // State
   getFullState: () => ipcRenderer.invoke(IpcMessages.STATE_GET_FULL),

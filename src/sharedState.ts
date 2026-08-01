@@ -15,6 +15,7 @@ export interface SettingsState {
   alwaysOpenChat?: boolean;
   topK?: number;
   temperature?: number;
+  useMtp?: boolean;
   defaultFont: DefaultFont;
   defaultFontSize: number;
   disableAutoUpdate?: boolean;
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   topK: 10,
   temperature: 0.7,
+  useMtp: false,
   defaultFont: "Tahoma",
   defaultFontSize: 12,
   disableAutoUpdate: false,

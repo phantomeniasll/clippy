@@ -5,6 +5,7 @@ import {
   ChatWithMessages,
   ClippyDebugInfo,
   Versions,
+  LlamaServerChatRequest,
 } from "../types/interfaces";
 import { DebugState } from "../debugState";
 
@@ -28,6 +29,10 @@ export type ClippyApi = {
   deleteModelByName: (name: string) => Promise<boolean>;
   deleteAllModels: () => Promise<boolean>;
   addModelFromFile: () => Promise<void>;
+  startLlamaServer: (modelName: string) => Promise<void>;
+  stopLlamaServer: () => Promise<void>;
+  llamaServerChat: (request: LlamaServerChatRequest) => Promise<string>;
+  abortLlamaServerRequest: (requestUUID: string) => Promise<void>;
   // State
   offStateChanged: () => void;
   onStateChanged: (callback: (state: SharedState) => void) => void;

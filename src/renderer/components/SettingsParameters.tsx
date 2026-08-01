@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { clippyApi } from "../clippyApi";
 import { useSharedState } from "../contexts/SharedStateContext";
 import { DEFAULT_SYSTEM_PROMPT } from "../../sharedState";
+import { Checkbox } from "./Checkbox";
 
 export const SettingsParameters: React.FC = () => {
   const { settings } = useSharedState();
@@ -10,6 +11,7 @@ export const SettingsParameters: React.FC = () => {
   );
   const [tempTopK, setTempTopK] = useState(settings.topK);
   const [tempTemperature, setTempTemperature] = useState(settings.temperature);
+  const [tempUseMtp, setTempUseMtp] = useState(settings.useMtp ?? false);
 
   // Update settings on unmount so that the user editing preferences
   // doesn't rapidly reload the model
@@ -18,7 +20,8 @@ export const SettingsParameters: React.FC = () => {
       const isNewSettings =
         tempSystemPrompt !== settings.systemPrompt ||
         tempTopK !== settings.topK ||
-        tempTemperature !== settings.temperature;
+        tempTemperature !== settings.temperature ||
+        tempUseMtp !== settings.useMtp;
 
       if (isNewSettings) {
         clippyApi.setState("settings", {
@@ -26,10 +29,11 @@ export const SettingsParameters: React.FC = () => {
           systemPrompt: tempSystemPrompt,
           topK: tempTopK,
           temperature: tempTemperature,
+          useMtp: tempUseMtp,
         });
       }
     };
-  }, [tempSystemPrompt, tempTopK, tempTemperature]);
+  }, [tempSystemPrompt, tempTopK, tempTemperature, tempUseMtp]);
 
   const handleSystemPromptReset = useCallback(() => {
     const confirmed = window.confirm(
@@ -68,6 +72,16 @@ export const SettingsParameters: React.FC = () => {
       </fieldset>
       <fieldset style={{ marginTop: "20px" }}>
         <legend>Parameters</legend>
+        <Checkbox
+          id="useMtp"
+          label="Enable multi-token prediction (MTP) when supported"
+          checked={tempUseMtp}
+          onChange={setTempUseMtp}
+        />
+        <p>
+          Uses the modern Vulkan llama.cpp backend for compatible Gemma 4 and
+          Qwen3.6 models. Other models continue to use Clippy's normal backend.
+        </p>
         <div className="field-row">
           <label htmlFor="topK">Top K</label>
           <input

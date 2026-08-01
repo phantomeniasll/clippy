@@ -13,6 +13,10 @@ export const IpcMessages = {
   DELETE_MODEL_BY_NAME: "clippy_delete_model_by_name",
   DELETE_ALL_MODELS: "clippy_delete_all_models",
   ADD_MODEL_FROM_FILE: "clippy_add_model_from_file",
+  LLAMA_SERVER_START: "clippy_llama_server_start",
+  LLAMA_SERVER_STOP: "clippy_llama_server_stop",
+  LLAMA_SERVER_CHAT: "clippy_llama_server_chat",
+  LLAMA_SERVER_ABORT: "clippy_llama_server_abort",
 
   // State messages
   STATE_UPDATE_MODEL_STATE: "clippy_state_update_model_state",

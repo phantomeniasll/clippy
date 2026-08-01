@@ -17,6 +17,19 @@ export interface ChatWithMessages {
   messages: MessageRecord[];
 }
 
+export interface LlamaServerChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface LlamaServerChatRequest {
+  requestUUID: string;
+  messages: LlamaServerChatMessage[];
+  systemPrompt: string;
+  topK?: number;
+  temperature?: number;
+}
+
 export type ChatRecordsState = Record<string, ChatRecord>;
 
 export interface Versions extends NodeJS.ProcessVersions {

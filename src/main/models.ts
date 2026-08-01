@@ -37,6 +37,7 @@ class ModelManager {
       ...model,
       downloaded: this.getIsModelDownloaded(model),
       path: getModelPath(model),
+      draftPath: model.draftUrl ? getModelDraftPath(model) : undefined,
     };
   }
 
@@ -55,22 +56,12 @@ class ModelManager {
     }
 
     // Cancel existing download if any
-    if (this.downloadItems[name]) {
-      try {
-        this.downloadItems[name].cancel();
-      } catch (error) {
-        getLogger().error(
-          `ModelManager: Error canceling download: ${name}`,
-          error,
-        );
-      }
-
-      delete this.downloadItems[name];
-    }
+    this.cancelDownload(model);
 
     // Set model state
     model.downloaded = false;
     model.path = getModelPath(model);
+    model.draftPath = model.draftUrl ? getModelDraftPath(model) : undefined;
 
     if (getDebugManager().store.get("simulateDownload")) {
       this.downloadItems[name] = new MockDownloadItem(model, () => {
@@ -145,6 +136,19 @@ class ModelManager {
       }
     }
 
+    if (model.draftPath && fs.existsSync(model.draftPath)) {
+      try {
+        await fs.promises.unlink(model.draftPath);
+        model.draftPath = undefined;
+      } catch (error) {
+        getLogger().error(
+          `ModelManager: Error deleting MTP drafter for ${name}`,
+          error,
+        );
+        return false;
+      }
+    }
+
     this.pollRendererModelState();
     return true;
   }
@@ -210,7 +214,9 @@ class ModelManager {
     const result: ModelState = {};
 
     for (const model of Object.values(this.models)) {
-      const downloadItem = this.downloadItems[model.name];
+      const downloadItem =
+        this.downloadItems[`${model.name}:draft`] ||
+        this.downloadItems[model.name];
       const downloadState: DownloadState | undefined = downloadItem
         ? {
             totalBytes: downloadItem.getTotalBytes(),
@@ -231,6 +237,10 @@ class ModelManager {
         path: model.path,
         description: model.description,
         homepage: model.homepage,
+        draftUrl: model.draftUrl,
+        draftPath: model.draftPath,
+        mtpMode: model.mtpMode,
+        mtpDraftTokens: model.mtpDraftTokens,
         imported: model.imported,
         downloaded: this.getIsModelDownloaded(model),
         downloadState,
@@ -250,14 +260,22 @@ class ModelManager {
     if (getDebugManager().store.get("simulateNoModelsDownloaded")) {
       return false;
     }
+    if (getDebugManager().store.get("simulateDownload")) {
+      return "downloaded" in model && Boolean(model.downloaded);
+    }
 
     const existsOnDisk = isModelOnDisk(model);
-    const hasDownloadItem = this.downloadItems[model.name];
-    const isDownloading =
-      hasDownloadItem &&
-      this.downloadItems[model.name].getState() !== "completed";
+    const draftExists =
+      !model.draftUrl || fs.existsSync(getModelDraftPath(model));
+    const activeDownloads = [
+      this.downloadItems[model.name],
+      this.downloadItems[`${model.name}:draft`],
+    ].filter(Boolean);
+    const isDownloading = activeDownloads.some(
+      (item) => item.getState() !== "completed",
+    );
 
-    return existsOnDisk && !isDownloading;
+    return existsOnDisk && draftExists && !isDownloading;
   }
 
   /**
@@ -324,9 +342,10 @@ class ModelManager {
   ) {
     const urlChain = downloadItem.getURLChain();
     const urlStr = urlChain[0];
-    const modelKey = Object.keys(this.models).find(
-      (k) => this.models[k].url === urlStr,
-    );
+    const modelKey = Object.keys(this.models).find((k) => {
+      const model = this.models[k];
+      return model.url === urlStr || model.draftUrl === urlStr;
+    });
     const model = this.models[modelKey];
 
     if (!model) {
@@ -338,7 +357,9 @@ class ModelManager {
     }
 
     // Check if there's already a download in progress for this model
-    const existingDownload = this.downloadItems[model.name];
+    const isDraft = model.draftUrl === urlStr;
+    const downloadKey = isDraft ? `${model.name}:draft` : model.name;
+    const existingDownload = this.downloadItems[downloadKey];
     if (existingDownload && existingDownload.getState() === "progressing") {
       getLogger().info(
         `ModelManager: Download already in progress for model ${model.name}. Disallowing duplicate download.`,
@@ -352,10 +373,26 @@ class ModelManager {
     );
 
     model.path = getModelPath(model);
+    model.draftPath = model.draftUrl ? getModelDraftPath(model) : undefined;
     model.downloaded = false;
-    this.downloadItems[model.name] = downloadItem;
+    this.downloadItems[downloadKey] = downloadItem;
 
-    downloadItem.setSavePath(model.path);
+    downloadItem.setSavePath(
+      isDraft ? getModelDraftPath(model) : getModelPath(model),
+    );
+    downloadItem.once("done", (_event, state) => {
+      if (
+        state === "completed" &&
+        !isDraft &&
+        model.draftUrl &&
+        !fs.existsSync(getModelDraftPath(model))
+      ) {
+        session.defaultSession.downloadURL(model.draftUrl);
+      }
+
+      this.pollRendererModelState();
+    });
+    this.pollRendererModelState();
 
     return true;
   }
@@ -366,9 +403,12 @@ class ModelManager {
    * @param name
    */
   private cancelDownload(model: ManagedModel) {
-    if (this.isModelDownloading(model)) {
+    for (const downloadKey of [model.name, `${model.name}:draft`]) {
+      const downloadItem = this.downloadItems[downloadKey];
+      if (!downloadItem || downloadItem.getState() === "completed") continue;
+
       try {
-        this.downloadItems[model.name].cancel();
+        downloadItem.cancel();
       } catch (error) {
         getLogger().error(
           `ModelManager: Error canceling download: ${model.name}`,
@@ -376,7 +416,7 @@ class ModelManager {
         );
       }
 
-      delete this.downloadItems[model.name];
+      delete this.downloadItems[downloadKey];
     }
   }
 
@@ -384,8 +424,8 @@ class ModelManager {
    * Cancels all downloads
    */
   private cancelAllDownloads() {
-    for (const name in this.downloadItems) {
-      this.cancelDownload(this.models[name]);
+    for (const model of Object.values(this.models)) {
+      this.cancelDownload(model);
     }
   }
 
@@ -396,9 +436,10 @@ class ModelManager {
    * @returns
    */
   private isModelDownloading(model: ManagedModel) {
-    return (
-      this.downloadItems[model.name] &&
-      this.downloadItems[model.name].getState() !== "completed"
+    return [model.name, `${model.name}:draft`].some(
+      (key) =>
+        this.downloadItems[key] &&
+        this.downloadItems[key].getState() !== "completed",
     );
   }
 }
@@ -419,7 +460,8 @@ export function getModelManager() {
  * @returns {boolean}
  */
 export function isModelOnDisk(model: ManagedModel | Model): boolean {
-  const filePath = "path" in model ? model.path : getModelPath(model);
+  const filePath =
+    "path" in model && model.path ? model.path : getModelPath(model);
   const existsOnDisk = fs.existsSync(filePath);
 
   return existsOnDisk;
@@ -433,6 +475,18 @@ export function isModelOnDisk(model: ManagedModel | Model): boolean {
  */
 export function getModelPath(model: Model): string {
   return path.join(app.getPath("userData"), "models", getModelFileName(model));
+}
+
+export function getModelDraftPath(model: Model): string {
+  if (!model.draftUrl) {
+    throw new Error(`Model ${model.name} does not have an MTP drafter`);
+  }
+
+  return path.join(
+    app.getPath("userData"),
+    "models",
+    path.basename(new URL(model.draftUrl).pathname),
+  );
 }
 
 /**

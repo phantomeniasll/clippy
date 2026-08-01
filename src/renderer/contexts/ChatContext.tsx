@@ -152,6 +152,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     async (initialPrompts: LanguageModelPrompt[] = []) => {
       setIsModelLoaded(false);
 
+      const selectedModel = settings.selectedModel
+        ? models[settings.selectedModel]
+        : undefined;
+      const useMtpBackend = Boolean(settings.useMtp && selectedModel?.mtpMode);
+
       const options: LanguageModelCreateOptions = {
         modelAlias: settings.selectedModel,
         systemPrompt: getSystemPrompt(),
@@ -163,7 +168,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       console.log("Loading model with options:", options);
 
       try {
-        await electronAi.create(options);
+        if (useMtpBackend && settings.selectedModel) {
+          await electronAi
+            .destroy()
+            .catch((_error: unknown): void => undefined);
+          await clippyApi.startLlamaServer(settings.selectedModel);
+        } else {
+          await clippyApi.stopLlamaServer();
+          await electronAi.create(options);
+        }
         setIsModelLoaded(true);
       } catch (error) {
         console.error(error);
@@ -181,6 +194,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       settings.systemPrompt,
       settings.topK,
       settings.temperature,
+      settings.useMtp,
+      models,
       messages,
     ],
   );
@@ -231,7 +246,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [messages]);
 
   // Load the model when the selected model changes
-  // or when the system prompt, topK, or temperature change
+  // or when the backend and generation settings change
   useEffect(() => {
     if (debug?.simulateDownload) {
       setIsModelLoaded(true);
@@ -241,8 +256,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (settings.selectedModel) {
       loadModel();
     } else if (!settings.selectedModel && isModelLoaded) {
-      electronAi
-        .destroy()
+      Promise.all([electronAi.destroy(), clippyApi.stopLlamaServer()])
         .then(() => {
           setIsModelLoaded(false);
         })
@@ -255,6 +269,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     settings.systemPrompt,
     settings.topK,
     settings.temperature,
+    settings.useMtp,
+    models[settings.selectedModel || ""]?.downloaded,
+    models[settings.selectedModel || ""]?.mtpMode,
   ]);
 
   // If selectedModel is undefined or not available, set it to the first downloaded model

@@ -14,6 +14,8 @@ import { checkForUpdates } from "./update";
 import { getVersions } from "./helpers/getVersions";
 import { getClippyDebugInfo } from "./debug-clippy";
 import { getDebugManager } from "./debug";
+import { getLlamaServerManager } from "./llama-server";
+import { LlamaServerChatRequest } from "../types/interfaces";
 
 export function setupIpcListeners() {
   // Window
@@ -41,6 +43,20 @@ export function setupIpcListeners() {
   );
   ipcMain.handle(IpcMessages.ADD_MODEL_FROM_FILE, () =>
     getModelManager().addModelFromFile(),
+  );
+  ipcMain.handle(IpcMessages.LLAMA_SERVER_START, (_, modelName: string) =>
+    getLlamaServerManager().start(modelName),
+  );
+  ipcMain.handle(IpcMessages.LLAMA_SERVER_STOP, () =>
+    getLlamaServerManager().stop(),
+  );
+  ipcMain.handle(
+    IpcMessages.LLAMA_SERVER_CHAT,
+    (_, request: LlamaServerChatRequest) =>
+      getLlamaServerManager().chat(request),
+  );
+  ipcMain.handle(IpcMessages.LLAMA_SERVER_ABORT, (_, requestUUID: string) =>
+    getLlamaServerManager().abort(requestUUID),
   );
 
   // State

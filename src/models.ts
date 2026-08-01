@@ -7,10 +7,14 @@ export interface Model {
   url?: string;
   description?: string;
   homepage?: string;
+  draftUrl?: string;
+  mtpMode?: "embedded" | "draft";
+  mtpDraftTokens?: number;
 }
 
 export interface ManagedModel extends Model {
   path: string;
+  draftPath?: string;
   downloaded?: boolean;
   downloadState?: DownloadState;
   imported?: boolean;
@@ -24,17 +28,34 @@ export const BUILT_IN_MODELS: Model[] = [
     company: "Google",
     size: 16900,
     url: "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf",
+    draftUrl:
+      "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/MTP/mtp-gemma-4-26B-A4B-it-Q8_0.gguf",
+    mtpMode: "draft",
+    mtpDraftTokens: 4,
     description:
-      "Gemma 4's efficient 26B mixture-of-experts instruction model, with about 4B parameters active per token. This balanced Q4_K_M download is intended for capable desktops. Gemma's separate MTP draft model is not automatically used by Clippy yet.",
+      "Gemma 4's efficient 26B mixture-of-experts instruction model, with about 4B parameters active per token. One click downloads the Unsloth Q4_K_M target and its recommended Q8 MTP drafter.",
     homepage: "https://ai.google.dev/gemma/docs/core",
   },
   {
-    name: "Qwen3.6 (35B A3B, MTP-ready)",
+    name: "Qwen3.6 (35B A3B, Q4 MTP)",
     company: "Qwen",
-    size: 26100,
-    url: "https://huggingface.co/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-APEX-MTP-I-Balanced.gguf",
+    size: 22700,
+    url: "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+    mtpMode: "embedded",
+    mtpDraftTokens: 2,
     description:
-      "Qwen3.6's 35B mixture-of-experts model with about 3B parameters active per token. This APEX I-Balanced quant includes the MTP head. Clippy can load it, but its Electron LLM wrapper does not yet activate MTP speculative decoding.",
+      "Qwen3.6's 35B mixture-of-experts model with about 3B parameters active per token. This balanced Unsloth Q4 quant includes its MTP head.",
+    homepage: "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
+  },
+  {
+    name: "Qwen3.6 (35B A3B, IQ2 MTP)",
+    company: "Qwen",
+    size: 11900,
+    url: "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-IQ2_M.gguf",
+    mtpMode: "embedded",
+    mtpDraftTokens: 2,
+    description:
+      "The smaller Unsloth IQ2_M quant of Qwen3.6 35B-A3B. It is roughly half the Q4 download size and includes the same MTP head, trading some quality for a much lower memory requirement.",
     homepage: "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
   },
   {

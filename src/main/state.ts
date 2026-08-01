@@ -52,6 +52,10 @@ export class StateManager {
       settings.temperature = 0.7;
     }
 
+    if (settings.useMtp === undefined) {
+      settings.useMtp = false;
+    }
+
     this.store.set("settings", settings);
   }
 
@@ -75,7 +79,7 @@ export class StateManager {
           delete models[modelName];
         }
       } else {
-        model.downloaded = isModelOnDisk(model);
+        model.downloaded = getModelManager().getIsModelDownloaded(model);
         model.path = getModelPath(model);
       }
     }
@@ -89,6 +93,15 @@ export class StateManager {
         models[model.name].homepage = model.homepage;
         models[model.name].size = model.size;
         models[model.name].url = model.url;
+        models[model.name].draftUrl = model.draftUrl;
+        models[model.name].draftPath = model.draftUrl
+          ? getModelManager().getManagedModelFromModel(model).draftPath
+          : undefined;
+        models[model.name].mtpMode = model.mtpMode;
+        models[model.name].mtpDraftTokens = model.mtpDraftTokens;
+        models[model.name].downloaded = getModelManager().getIsModelDownloaded(
+          models[model.name],
+        );
       }
     }
 
