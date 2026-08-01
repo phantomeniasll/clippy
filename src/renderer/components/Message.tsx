@@ -29,17 +29,24 @@ export function Message({ message }: { message: Message }) {
       />
       <div className="message-content">
         {message.reasoningContent && (
-          <details className="thinking-view" open={message.id === "streaming"}>
-            <summary>
-              Thinking
-              {message.thinkingTokens !== undefined
-                ? ` · ${message.thinkingTokens} tokens`
-                : "…"}
-            </summary>
-            <div className="thinking-content">
-              <Markdown>{message.reasoningContent}</Markdown>
-            </div>
-          </details>
+          <ul className="tree-view thinking-tree">
+            <li>
+              <details
+                className="thinking-view"
+                open={message.id === "streaming"}
+              >
+                <summary>
+                  Thinking
+                  {message.thinkingTokens !== undefined
+                    ? ` · ${message.thinkingTokens} tokens`
+                    : "…"}
+                </summary>
+                <div className="thinking-content">
+                  <Markdown>{message.reasoningContent}</Markdown>
+                </div>
+              </details>
+            </li>
+          </ul>
         )}
         {message.children ? (
           message.children
