@@ -53,7 +53,7 @@ export class StateManager {
     }
 
     if (settings.useMtp === undefined) {
-      settings.useMtp = false;
+      settings.useMtp = true;
     }
 
     this.store.set("settings", settings);

@@ -11,7 +11,7 @@ export const SettingsParameters: React.FC = () => {
   );
   const [tempTopK, setTempTopK] = useState(settings.topK);
   const [tempTemperature, setTempTemperature] = useState(settings.temperature);
-  const [tempUseMtp, setTempUseMtp] = useState(settings.useMtp ?? false);
+  const [tempUseMtp, setTempUseMtp] = useState(settings.useMtp ?? true);
 
   // Update settings on unmount so that the user editing preferences
   // doesn't rapidly reload the model

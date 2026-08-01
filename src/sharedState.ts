@@ -46,7 +46,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   topK: 10,
   temperature: 0.7,
-  useMtp: false,
+  useMtp: true,
   defaultFont: "Tahoma",
   defaultFontSize: 12,
   disableAutoUpdate: false,
