@@ -1,9 +1,12 @@
 # Clippy
 
-> **Downstream edition:** This repository is a Linux- and NixOS-focused fork
-> maintained by [@phantomeniasll](https://github.com/phantomeniasll). The
-> original project is [felixrieseberg/clippy](https://github.com/felixrieseberg/clippy).
-> Upstream authorship and licensing are preserved.
+> **Downstream edition:** This is a fun, mostly AI-driven weekend project and a
+> Linux- and NixOS-focused fork maintained by
+> [@phantomeniasll](https://github.com/phantomeniasll). The original project is
+> [felixrieseberg/clippy](https://github.com/felixrieseberg/clippy). Upstream
+> authorship and licensing are preserved.
+
+![Clippy chat with streaming reasoning in the Windows 95-style interface](docs/screenshots/clippy-chat.png)
 
 [Clippy](https://felixrieseberg.github.io/clippy/) let's you run a variety of large language models (LLMs) locally on your computer while sticking with a user interface of the 1990s. Through Llama.cpp, it supports models in the popular GGUF format, which is to say most publicly available models. It comes with one-click installation support for Google's Gemma3, Meta's Llama 3.2, Microsoft's Phi-4, and Qwen's Qwen3.
 
@@ -21,7 +24,6 @@ It is also meant to be a reference implementation of [@electron/llm](https://git
 - Streaming answers, collapsible reasoning output, generated/thinking token
   counts, and measured token throughput.
 - A Windows 95-style **New Chat** action and an answer-ready badge on Clippy.
-- An external `--toggle-chat` command for desktop shortcuts and hardware keys.
 - Linux helper-window behavior: no regular taskbar entry and optional
   always-on-top Clippy/chat windows.
 
@@ -31,11 +33,6 @@ MTP models need a recent `llama-server` exposed through the
 Vulkan-enabled server and the Electron runtime automatically. The fork is
 currently tested and packaged on x86_64 Linux; the inherited upstream build
 workflow still covers the other desktop targets.
-
-The physical Copilot-key listener is deliberately not part of this app: input
-device paths and key mappings are machine-specific. An example NixOS user
-service lives in the maintainer's
-[NixOS configuration](https://github.com/phantomeniasll/nixos).
 
 ## Features
 
