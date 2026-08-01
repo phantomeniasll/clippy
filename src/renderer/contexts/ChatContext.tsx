@@ -77,6 +77,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     useState(false);
 
   useEffect(() => {
+    if (isChatWindowOpen) setAnswerReady(false);
+  }, [isChatWindowOpen, answerReady]);
+
+  useEffect(() => {
     void clippyApi.shouldOpenChatOnStart().then((shouldOpen) => {
       if (shouldOpen) setIsChatWindowOpen(true);
     });

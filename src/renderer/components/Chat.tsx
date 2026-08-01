@@ -19,6 +19,7 @@ export function Chat({ style }: ChatProps) {
     messages,
     addMessage,
     setAnswerReady,
+    isChatWindowOpen,
   } = useChat();
   const [streamingMessageContent, setStreamingMessageContent] =
     useState<string>("");
@@ -143,7 +144,7 @@ export function Chat({ style }: ChatProps) {
           createdAt: Date.now(),
         };
         await addMessage(assistantMessage);
-        setAnswerReady(true);
+        if (!isChatWindowOpen) setAnswerReady(true);
       } else {
         const response = await window.electronAi.promptStreaming(message, {
           requestUUID,
@@ -157,7 +158,7 @@ export function Chat({ style }: ChatProps) {
           sender: "clippy",
           createdAt: Date.now(),
         });
-        setAnswerReady(true);
+        if (!isChatWindowOpen) setAnswerReady(true);
       }
     } catch (error) {
       console.error(error);
