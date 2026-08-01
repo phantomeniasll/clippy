@@ -74,6 +74,11 @@ class LlamaServerManager {
       String(port),
       "--ctx-size",
       "8192",
+      // Clippy serializes chat requests, so extra server slots only duplicate
+      // context/KV memory. On memory-constrained systems that can make --fit
+      // move model layers back to the CPU and sharply reduce throughput.
+      "--parallel",
+      "1",
       "--fit",
       "on",
       "--fit-target",

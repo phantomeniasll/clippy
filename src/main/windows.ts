@@ -243,6 +243,7 @@ export function toggleChatWindow() {
     chatWindow.setPosition(position.x, position.y);
     chatWindow.show();
     chatWindow.focus();
+    focusChatInput(chatWindow);
   }
 }
 
@@ -253,6 +254,15 @@ export function showChatWindow() {
   if (chatWindow.isMinimized()) chatWindow.restore();
   chatWindow.show();
   chatWindow.focus();
+  focusChatInput(chatWindow);
+}
+
+function focusChatInput(chatWindow: BrowserWindow) {
+  void chatWindow.webContents
+    .executeJavaScript(
+      `document.querySelector('textarea:not([disabled])')?.focus()`,
+    )
+    .catch((error) => getLogger().warn("Could not focus chat input", error));
 }
 
 /**
