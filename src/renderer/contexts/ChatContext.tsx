@@ -73,6 +73,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [hasPerformedStartupCheck, setHasPerformedStartupCheck] =
     useState(false);
 
+  useEffect(() => {
+    void clippyApi.shouldOpenChatOnStart().then((shouldOpen) => {
+      if (shouldOpen) setIsChatWindowOpen(true);
+    });
+
+    clippyApi.offToggleChatRequested();
+    clippyApi.onToggleChatRequested(() => {
+      setIsChatWindowOpen((isOpen) => !isOpen);
+    });
+
+    return () => clippyApi.offToggleChatRequested();
+  }, []);
+
   const getSystemPrompt = useCallback(() => {
     return settings.systemPrompt.replace(
       "[LIST OF ANIMATIONS]",

@@ -13,6 +13,12 @@ import { BubbleView } from "./contexts/BubbleViewContext";
 const clippyApi: ClippyApi = {
   // Window
   toggleChatWindow: () => ipcRenderer.invoke(IpcMessages.TOGGLE_CHAT_WINDOW),
+  onToggleChatRequested: (callback: () => void) => {
+    ipcRenderer.on(IpcMessages.TOGGLE_CHAT_REQUESTED, callback);
+  },
+  offToggleChatRequested: () => {
+    ipcRenderer.removeAllListeners(IpcMessages.TOGGLE_CHAT_REQUESTED);
+  },
   minimizeChatWindow: () =>
     ipcRenderer.invoke(IpcMessages.MINIMIZE_CHAT_WINDOW),
   maximizeChatWindow: () =>
@@ -95,6 +101,8 @@ const clippyApi: ClippyApi = {
   // App
   getVersions: () => ipcRenderer.invoke(IpcMessages.APP_GET_VERSIONS),
   checkForUpdates: () => ipcRenderer.invoke(IpcMessages.APP_CHECK_FOR_UPDATES),
+  shouldOpenChatOnStart: () =>
+    ipcRenderer.invoke(IpcMessages.APP_SHOULD_OPEN_CHAT_ON_START),
 
   // Clipboard
   clipboardWrite: (data: Data) =>

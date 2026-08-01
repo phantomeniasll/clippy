@@ -102,6 +102,7 @@ const config: ForgeConfig = {
     },
   },
   packagerConfig: {
+    electronVersion: process.env.ELECTRON_VERSION,
     electronZipDir: process.env.ELECTRON_ZIP_DIR,
     asar: {
       unpack: "**/node_modules/*node-llama-cpp*/**",

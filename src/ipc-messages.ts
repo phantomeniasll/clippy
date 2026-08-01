@@ -1,6 +1,7 @@
 export const IpcMessages = {
   // Window messages
   TOGGLE_CHAT_WINDOW: "clippy_toggle_chat_window",
+  TOGGLE_CHAT_REQUESTED: "clippy_toggle_chat_requested",
   MINIMIZE_CHAT_WINDOW: "clippy_minimize_chat_window",
   MAXIMIZE_CHAT_WINDOW: "clippy_maximize_chat_window",
   SET_BUBBLE_VIEW: "clippy_set_bubble_view",
@@ -32,6 +33,7 @@ export const IpcMessages = {
   // App messages
   APP_CHECK_FOR_UPDATES: "clippy_app_check_for_updates",
   APP_GET_VERSIONS: "clippy_app__get_versions",
+  APP_SHOULD_OPEN_CHAT_ON_START: "clippy_app_should_open_chat_on_start",
 
   // Chat messages
   CHAT_GET_CHAT_RECORDS: "clippy_chat_get_chat_records",

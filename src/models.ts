@@ -20,6 +20,24 @@ export type ModelState = Record<string, ManagedModel>;
 
 export const BUILT_IN_MODELS: Model[] = [
   {
+    name: "Gemma 4 (26B A4B, Q4)",
+    company: "Google",
+    size: 16900,
+    url: "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf",
+    description:
+      "Gemma 4's efficient 26B mixture-of-experts instruction model, with about 4B parameters active per token. This balanced Q4_K_M download is intended for capable desktops. Gemma's separate MTP draft model is not automatically used by Clippy yet.",
+    homepage: "https://ai.google.dev/gemma/docs/core",
+  },
+  {
+    name: "Qwen3.6 (35B A3B, MTP-ready)",
+    company: "Qwen",
+    size: 26100,
+    url: "https://huggingface.co/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-APEX-MTP-I-Balanced.gguf",
+    description:
+      "Qwen3.6's 35B mixture-of-experts model with about 3B parameters active per token. This APEX I-Balanced quant includes the MTP head. Clippy can load it, but its Electron LLM wrapper does not yet activate MTP speculative decoding.",
+    homepage: "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
+  },
+  {
     name: "Gemma 3 (1B)",
     company: "Google",
     size: 806,

@@ -14,6 +14,8 @@ import { Data } from "electron";
 export type ClippyApi = {
   // Window
   toggleChatWindow: () => Promise<void>;
+  onToggleChatRequested: (callback: () => void) => void;
+  offToggleChatRequested: () => void;
   minimizeChatWindow: () => Promise<void>;
   maximizeChatWindow: () => Promise<void>;
   onSetBubbleView: (callback: (bubbleView: BubbleView) => void) => void;
@@ -44,6 +46,7 @@ export type ClippyApi = {
   // App
   getVersions: () => Promise<Versions>;
   checkForUpdates: () => Promise<void>;
+  shouldOpenChatOnStart: () => Promise<boolean>;
   // Chats
   getChatRecords: () => Promise<Record<string, ChatRecord>>;
   getChatWithMessages: (chatId: string) => Promise<ChatWithMessages | null>;

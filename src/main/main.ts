@@ -5,13 +5,40 @@ if (shouldQuit) {
   app.quit();
 }
 
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { loadElectronLlm } from "@electron/llm";
 import { setupIpcListeners } from "./ipc";
 import { createMainWindow, setupWindowListener } from "./windows";
 import { getModelManager } from "./models";
 import { setupAutoUpdater } from "./update";
 import { setupAppMenu } from "./menu";
+import { IpcMessages } from "../ipc-messages";
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+let shouldOpenChatOnStart = process.argv.includes("--toggle-chat");
+
+function requestChatToggle() {
+  const mainWindow = BrowserWindow.getAllWindows().find(
+    (window) => !window.getParentWindow(),
+  );
+
+  if (!mainWindow || mainWindow.webContents.isLoadingMainFrame()) {
+    shouldOpenChatOnStart = !shouldOpenChatOnStart;
+    return;
+  }
+
+  mainWindow.webContents.send(IpcMessages.TOGGLE_CHAT_REQUESTED);
+}
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, commandLine) => {
+    if (commandLine.includes("--toggle-chat")) {
+      requestChatToggle();
+    }
+  });
+}
 
 async function onReady() {
   console.info(`Welcome to Clippy v${app.getVersion()}`);
@@ -20,6 +47,11 @@ async function onReady() {
   await loadLlm();
   setupAppMenu();
   setupIpcListeners();
+  ipcMain.handle(IpcMessages.APP_SHOULD_OPEN_CHAT_ON_START, () => {
+    const result = shouldOpenChatOnStart;
+    shouldOpenChatOnStart = false;
+    return result;
+  });
   setupWindowListener();
   await createMainWindow();
 }
@@ -35,7 +67,7 @@ async function loadLlm() {
   });
 }
 
-app.on("ready", onReady);
+if (hasSingleInstanceLock) app.on("ready", onReady);
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
