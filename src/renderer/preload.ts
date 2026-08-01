@@ -6,13 +6,18 @@ import { IpcMessages } from "../ipc-messages";
 import type { SharedState } from "../sharedState";
 
 import type { ClippyApi } from "./clippyApi";
-import { ChatWithMessages, LlamaServerChatRequest } from "../types/interfaces";
+import {
+  ChatWithMessages,
+  LlamaServerChatChunk,
+  LlamaServerChatRequest,
+} from "../types/interfaces";
 import { DebugState } from "../debugState";
 import { BubbleView } from "./contexts/BubbleViewContext";
 
 const clippyApi: ClippyApi = {
   // Window
   toggleChatWindow: () => ipcRenderer.invoke(IpcMessages.TOGGLE_CHAT_WINDOW),
+  showChatWindow: () => ipcRenderer.invoke(IpcMessages.SHOW_CHAT_WINDOW),
   onToggleChatRequested: (callback: () => void) => {
     ipcRenderer.on(IpcMessages.TOGGLE_CHAT_REQUESTED, callback);
   },
@@ -47,8 +52,25 @@ const clippyApi: ClippyApi = {
   startLlamaServer: (modelName: string) =>
     ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_START, modelName),
   stopLlamaServer: () => ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_STOP),
-  llamaServerChat: (request: LlamaServerChatRequest) =>
-    ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_CHAT, request),
+  llamaServerChat: async (
+    request: LlamaServerChatRequest,
+    onChunk: (chunk: LlamaServerChatChunk) => void,
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      requestUUID: string,
+      chunk: LlamaServerChatChunk,
+    ) => {
+      if (requestUUID === request.requestUUID) onChunk(chunk);
+    };
+
+    ipcRenderer.on(IpcMessages.LLAMA_SERVER_CHAT_CHUNK, listener);
+    try {
+      return await ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_CHAT, request);
+    } finally {
+      ipcRenderer.removeListener(IpcMessages.LLAMA_SERVER_CHAT_CHUNK, listener);
+    }
+  },
   abortLlamaServerRequest: (requestUUID: string) =>
     ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_ABORT, requestUUID),
 

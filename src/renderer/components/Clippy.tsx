@@ -8,6 +8,7 @@ import {
 import { useChat } from "../contexts/ChatContext";
 import { log } from "../logging";
 import { useDebugState } from "../contexts/DebugContext";
+import { clippyApi } from "../clippyApi";
 
 const WAIT_TIME = 6000;
 
@@ -18,6 +19,8 @@ export function Clippy() {
     setStatus,
     setIsChatWindowOpen,
     isChatWindowOpen,
+    answerReady,
+    setAnswerReady,
   } = useChat();
   const { enableDragDebug } = useDebugState();
   const [animation, setAnimation] = useState<Animation>(EMPTY_ANIMATION);
@@ -92,6 +95,20 @@ export function Clippy() {
 
   return (
     <div>
+      {answerReady && (
+        <button
+          className="answer-ready-badge app-no-drag"
+          aria-label="Answer ready"
+          title="Clippy's answer is ready"
+          onClick={() => {
+            setAnswerReady(false);
+            setIsChatWindowOpen(true);
+            void clippyApi.showChatWindow();
+          }}
+        >
+          !
+        </button>
+      )}
       <div
         className="app-drag"
         style={{

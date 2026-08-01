@@ -12,6 +12,11 @@ export interface Message extends MessageRecord {
 }
 
 export function Message({ message }: { message: Message }) {
+  const hasGenerationStats =
+    message.tokensPerSecond !== undefined ||
+    message.completionTokens !== undefined ||
+    message.thinkingTokens !== undefined;
+
   return (
     <div
       className="message"
@@ -23,6 +28,19 @@ export function Message({ message }: { message: Message }) {
         style={{ width: "24px", height: "24px", marginRight: "8px" }}
       />
       <div className="message-content">
+        {message.reasoningContent && (
+          <details className="thinking-view" open={message.id === "streaming"}>
+            <summary>
+              Thinking
+              {message.thinkingTokens !== undefined
+                ? ` · ${message.thinkingTokens} tokens`
+                : "…"}
+            </summary>
+            <div className="thinking-content">
+              <Markdown>{message.reasoningContent}</Markdown>
+            </div>
+          </details>
+        )}
         {message.children ? (
           message.children
         ) : (
@@ -35,6 +53,19 @@ export function Message({ message }: { message: Message }) {
           >
             {message.content}
           </Markdown>
+        )}
+        {hasGenerationStats && (
+          <div className="generation-stats" aria-label="Generation statistics">
+            {message.tokensPerSecond !== undefined && (
+              <span>{message.tokensPerSecond.toFixed(1)} tok/s</span>
+            )}
+            {message.completionTokens !== undefined && (
+              <span>{message.completionTokens} generated</span>
+            )}
+            {message.thinkingTokens !== undefined && (
+              <span>{message.thinkingTokens} thinking</span>
+            )}
+          </div>
         )}
       </div>
     </div>

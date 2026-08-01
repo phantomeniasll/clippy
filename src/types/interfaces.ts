@@ -1,6 +1,10 @@
 export interface MessageRecord {
   id: string;
   content?: string;
+  reasoningContent?: string;
+  tokensPerSecond?: number;
+  completionTokens?: number;
+  thinkingTokens?: number;
   sender: "user" | "clippy";
   createdAt: number;
 }
@@ -28,6 +32,19 @@ export interface LlamaServerChatRequest {
   systemPrompt: string;
   topK?: number;
   temperature?: number;
+}
+
+export interface LlamaServerChatChunk {
+  content?: string;
+  reasoningContent?: string;
+}
+
+export interface LlamaServerChatResponse {
+  content: string;
+  reasoningContent: string;
+  tokensPerSecond?: number;
+  completionTokens?: number;
+  thinkingTokens: number;
 }
 
 export type ChatRecordsState = Record<string, ChatRecord>;

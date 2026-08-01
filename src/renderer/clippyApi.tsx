@@ -5,7 +5,9 @@ import {
   ChatWithMessages,
   ClippyDebugInfo,
   Versions,
+  LlamaServerChatChunk,
   LlamaServerChatRequest,
+  LlamaServerChatResponse,
 } from "../types/interfaces";
 import { DebugState } from "../debugState";
 
@@ -15,6 +17,7 @@ import { Data } from "electron";
 export type ClippyApi = {
   // Window
   toggleChatWindow: () => Promise<void>;
+  showChatWindow: () => Promise<void>;
   onToggleChatRequested: (callback: () => void) => void;
   offToggleChatRequested: () => void;
   minimizeChatWindow: () => Promise<void>;
@@ -31,7 +34,10 @@ export type ClippyApi = {
   addModelFromFile: () => Promise<void>;
   startLlamaServer: (modelName: string) => Promise<void>;
   stopLlamaServer: () => Promise<void>;
-  llamaServerChat: (request: LlamaServerChatRequest) => Promise<string>;
+  llamaServerChat: (
+    request: LlamaServerChatRequest,
+    onChunk: (chunk: LlamaServerChatChunk) => void,
+  ) => Promise<LlamaServerChatResponse>;
   abortLlamaServerRequest: (requestUUID: string) => Promise<void>;
   // State
   offStateChanged: () => void;

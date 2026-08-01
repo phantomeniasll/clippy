@@ -246,6 +246,15 @@ export function toggleChatWindow() {
   }
 }
 
+export function showChatWindow() {
+  const chatWindow = getChatWindow();
+  if (!chatWindow) return;
+
+  if (chatWindow.isMinimized()) chatWindow.restore();
+  chatWindow.show();
+  chatWindow.focus();
+}
+
 /**
  * Minimize the chat window
  */

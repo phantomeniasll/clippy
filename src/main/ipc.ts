@@ -1,6 +1,7 @@
 import { clipboard, Data, ipcMain } from "electron";
 import {
   toggleChatWindow,
+  showChatWindow,
   maximizeChatWindow,
   minimizeChatWindow,
 } from "./windows";
@@ -20,6 +21,7 @@ import { LlamaServerChatRequest } from "../types/interfaces";
 export function setupIpcListeners() {
   // Window
   ipcMain.handle(IpcMessages.TOGGLE_CHAT_WINDOW, () => toggleChatWindow());
+  ipcMain.handle(IpcMessages.SHOW_CHAT_WINDOW, () => showChatWindow());
   ipcMain.handle(IpcMessages.MINIMIZE_CHAT_WINDOW, () => minimizeChatWindow());
   ipcMain.handle(IpcMessages.MAXIMIZE_CHAT_WINDOW, () => maximizeChatWindow());
   ipcMain.handle(IpcMessages.POPUP_APP_MENU, () => getMainAppMenu().popup());
@@ -52,8 +54,14 @@ export function setupIpcListeners() {
   );
   ipcMain.handle(
     IpcMessages.LLAMA_SERVER_CHAT,
-    (_, request: LlamaServerChatRequest) =>
-      getLlamaServerManager().chat(request),
+    (event, request: LlamaServerChatRequest) =>
+      getLlamaServerManager().chat(request, (chunk) => {
+        event.sender.send(
+          IpcMessages.LLAMA_SERVER_CHAT_CHUNK,
+          request.requestUUID,
+          chunk,
+        );
+      }),
   );
   ipcMain.handle(IpcMessages.LLAMA_SERVER_ABORT, (_, requestUUID: string) =>
     getLlamaServerManager().abort(requestUUID),

@@ -41,6 +41,8 @@ export type ChatContextType = {
   isModelLoaded: boolean;
   isChatWindowOpen: boolean;
   setIsChatWindowOpen: (isChatWindowOpen: boolean) => void;
+  answerReady: boolean;
+  setAnswerReady: (answerReady: boolean) => void;
   chatRecords: Record<string, ChatRecord>;
   currentChatRecord: ChatRecord;
   selectChat: (chatId: string) => void;
@@ -70,6 +72,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const { settings, models } = useContext(SharedStateContext);
   const debug = useDebugState();
   const [isChatWindowOpen, setIsChatWindowOpen] = useState(false);
+  const [answerReady, setAnswerReady] = useState(false);
   const [hasPerformedStartupCheck, setHasPerformedStartupCheck] =
     useState(false);
 
@@ -363,6 +366,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     isModelLoaded,
     isChatWindowOpen,
     setIsChatWindowOpen,
+    answerReady,
+    setAnswerReady,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
@@ -382,6 +387,10 @@ function messageRecordFromMessage(message: Message): MessageRecord {
   return {
     id: message.id,
     content: message.content,
+    reasoningContent: message.reasoningContent,
+    tokensPerSecond: message.tokensPerSecond,
+    completionTokens: message.completionTokens,
+    thinkingTokens: message.thinkingTokens,
     sender: message.sender,
     createdAt: message.createdAt,
   };

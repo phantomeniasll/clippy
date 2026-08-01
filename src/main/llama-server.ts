@@ -2,14 +2,23 @@ import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { createServer } from "net";
 import { getLogger } from "./logger";
 import { getModelManager } from "./models";
-import { LlamaServerChatRequest } from "../types/interfaces";
+import {
+  LlamaServerChatChunk,
+  LlamaServerChatRequest,
+  LlamaServerChatResponse,
+} from "../types/interfaces";
 
 const SERVER_HOST = "127.0.0.1";
 const START_TIMEOUT_MS = 5 * 60 * 1000;
 
 type ChatCompletionResponse = {
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{
+    message?: { content?: string; reasoning_content?: string };
+    delta?: { content?: string; reasoning_content?: string };
+  }>;
   error?: { message?: string };
+  timings?: { predicted_per_second?: number };
+  usage?: { completion_tokens?: number };
 };
 
 class LlamaServerManager {
@@ -157,7 +166,10 @@ class LlamaServerManager {
     this.activeModel = null;
   }
 
-  public async chat(request: LlamaServerChatRequest): Promise<string> {
+  public async chat(
+    request: LlamaServerChatRequest,
+    onChunk: (chunk: LlamaServerChatChunk) => void,
+  ): Promise<LlamaServerChatResponse> {
     if (!this.child || !this.port || !this.activeModel) {
       throw new Error("MTP backend is not running");
     }
@@ -179,31 +191,133 @@ class LlamaServerManager {
             ],
             temperature: request.temperature,
             top_k: request.topK,
-            stream: false,
+            stream: true,
+            stream_options: { include_usage: true },
           }),
         },
       );
-      const body = (await response.json()) as ChatCompletionResponse;
       if (!response.ok) {
+        const body = (await response.json()) as ChatCompletionResponse;
         throw new Error(
           body.error?.message ||
             `llama-server returned HTTP ${response.status}`,
         );
       }
 
-      const content = body.choices?.[0]?.message?.content;
-      if (typeof content !== "string") {
+      if (!response.body) {
         throw new Error("llama-server returned an empty response");
       }
-      return content;
+
+      let content = "";
+      let reasoningContent = "";
+      let tokensPerSecond: number | undefined;
+      let completionTokens: number | undefined;
+
+      await consumeServerSentEvents(response.body, (body) => {
+        const choice = body.choices?.[0];
+        const contentChunk = choice?.delta?.content;
+        const reasoningChunk = choice?.delta?.reasoning_content;
+
+        if (typeof contentChunk === "string" && contentChunk) {
+          content += contentChunk;
+          onChunk({ content: contentChunk });
+        }
+        if (typeof reasoningChunk === "string" && reasoningChunk) {
+          reasoningContent += reasoningChunk;
+          onChunk({ reasoningContent: reasoningChunk });
+        }
+
+        if (typeof body.timings?.predicted_per_second === "number") {
+          tokensPerSecond = body.timings.predicted_per_second;
+        }
+        if (typeof body.usage?.completion_tokens === "number") {
+          completionTokens = body.usage.completion_tokens;
+        }
+      });
+
+      const thinkingTokens = reasoningContent
+        ? await this.countTokens(reasoningContent, controller.signal)
+        : 0;
+
+      return {
+        content,
+        reasoningContent,
+        tokensPerSecond,
+        completionTokens,
+        thinkingTokens,
+      };
     } finally {
       this.requests.delete(request.requestUUID);
+    }
+  }
+
+  private async countTokens(content: string, signal: AbortSignal) {
+    if (!this.port) return 0;
+
+    try {
+      const response = await fetch(
+        `http://${SERVER_HOST}:${this.port}/tokenize`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal,
+          body: JSON.stringify({ content, add_special: false }),
+        },
+      );
+      if (!response.ok) return 0;
+
+      const body = (await response.json()) as { tokens?: unknown[] };
+      return Array.isArray(body.tokens) ? body.tokens.length : 0;
+    } catch {
+      return 0;
     }
   }
 
   public abort(requestUUID: string): void {
     this.requests.get(requestUUID)?.abort();
   }
+}
+
+async function consumeServerSentEvents(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: ChatCompletionResponse) => void,
+) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const consumeBuffer = (flush = false) => {
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = flush ? "" : blocks.pop() || "";
+
+    for (const block of blocks) {
+      const data = block
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart())
+        .join("\n");
+      if (!data || data === "[DONE]") continue;
+
+      try {
+        onEvent(JSON.parse(data) as ChatCompletionResponse);
+      } catch (error) {
+        getLogger().warn("Could not parse llama-server stream event", {
+          error,
+        });
+      }
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    consumeBuffer();
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) buffer += "\n\n";
+  consumeBuffer(true);
 }
 
 async function getAvailablePort(): Promise<number> {

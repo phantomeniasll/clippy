@@ -12,9 +12,17 @@ export type ChatProps = {
 };
 
 export function Chat({ style }: ChatProps) {
-  const { setAnimationKey, setStatus, status, messages, addMessage } =
-    useChat();
+  const {
+    setAnimationKey,
+    setStatus,
+    status,
+    messages,
+    addMessage,
+    setAnswerReady,
+  } = useChat();
   const [streamingMessageContent, setStreamingMessageContent] =
+    useState<string>("");
+  const [streamingReasoningContent, setStreamingReasoningContent] =
     useState<string>("");
   const [lastRequestUUID, setLastRequestUUID] = useState<string>(
     crypto.randomUUID(),
@@ -46,7 +54,9 @@ export function Chat({ style }: ChatProps) {
     };
 
     await addMessage(userMessage);
+    setAnswerReady(false);
     setStreamingMessageContent("");
+    setStreamingReasoningContent("");
     setStatus("thinking");
 
     try {
@@ -56,6 +66,7 @@ export function Chat({ style }: ChatProps) {
       let fullContent = "";
       let filteredContent = "";
       let hasSetAnimationKey = false;
+      let receivedStreamedContent = false;
 
       const consumeChunk = (chunk: string) => {
         if (fullContent === "") {
@@ -82,50 +93,77 @@ export function Chat({ style }: ChatProps) {
       };
 
       if (useMtpBackend) {
-        const response = await clippyApi.llamaServerChat({
-          requestUUID,
-          systemPrompt: (settings.systemPrompt || "").replace(
-            "[LIST OF ANIMATIONS]",
-            ANIMATION_KEYS_BRACKETS.join(", "),
-          ),
-          topK: settings.topK,
-          temperature: settings.temperature,
-          messages: [
-            ...messages
-              .filter((item) => item.content)
-              .map((item) => ({
-                role:
-                  item.sender === "clippy"
-                    ? ("assistant" as const)
-                    : ("user" as const),
-                content: item.content || "",
-              })),
-            { role: "user", content: message },
-          ],
-        });
-        consumeChunk(response);
+        const response = await clippyApi.llamaServerChat(
+          {
+            requestUUID,
+            systemPrompt: (settings.systemPrompt || "").replace(
+              "[LIST OF ANIMATIONS]",
+              ANIMATION_KEYS_BRACKETS.join(", "),
+            ),
+            topK: settings.topK,
+            temperature: settings.temperature,
+            messages: [
+              ...messages
+                .filter((item) => item.content)
+                .map((item) => ({
+                  role:
+                    item.sender === "clippy"
+                      ? ("assistant" as const)
+                      : ("user" as const),
+                  content: item.content || "",
+                })),
+              { role: "user", content: message },
+            ],
+          },
+          (chunk) => {
+            if (chunk.reasoningContent) {
+              setStreamingReasoningContent(
+                (current) => current + chunk.reasoningContent,
+              );
+            }
+            if (chunk.content) {
+              receivedStreamedContent = true;
+              consumeChunk(chunk.content);
+            }
+          },
+        );
+
+        if (!receivedStreamedContent && response.content) {
+          consumeChunk(response.content);
+        }
+
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          content: filteredContent,
+          reasoningContent: response.reasoningContent,
+          tokensPerSecond: response.tokensPerSecond,
+          completionTokens: response.completionTokens,
+          thinkingTokens: response.thinkingTokens,
+          sender: "clippy",
+          createdAt: Date.now(),
+        };
+        await addMessage(assistantMessage);
+        setAnswerReady(true);
       } else {
         const response = await window.electronAi.promptStreaming(message, {
           requestUUID,
         });
 
         for await (const chunk of response) consumeChunk(chunk);
+
+        await addMessage({
+          id: crypto.randomUUID(),
+          content: filteredContent,
+          sender: "clippy",
+          createdAt: Date.now(),
+        });
+        setAnswerReady(true);
       }
-
-      // Once streaming is complete, add the full message to the messages array
-      // and clear the streaming message
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        content: filteredContent,
-        sender: "clippy",
-        createdAt: Date.now(),
-      };
-
-      addMessage(assistantMessage);
     } catch (error) {
       console.error(error);
     } finally {
       setStreamingMessageContent("");
+      setStreamingReasoningContent("");
       setStatus("idle");
     }
   };
@@ -135,11 +173,12 @@ export function Chat({ style }: ChatProps) {
       {messages.map((message) => (
         <Message key={message.id} message={message} />
       ))}
-      {status === "responding" && (
+      {(status === "responding" || streamingReasoningContent) && (
         <Message
           message={{
             id: "streaming",
             content: streamingMessageContent,
+            reasoningContent: streamingReasoningContent,
             sender: "clippy",
             createdAt: Date.now(),
           }}

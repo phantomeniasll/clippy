@@ -1,6 +1,7 @@
 export const IpcMessages = {
   // Window messages
   TOGGLE_CHAT_WINDOW: "clippy_toggle_chat_window",
+  SHOW_CHAT_WINDOW: "clippy_show_chat_window",
   TOGGLE_CHAT_REQUESTED: "clippy_toggle_chat_requested",
   MINIMIZE_CHAT_WINDOW: "clippy_minimize_chat_window",
   MAXIMIZE_CHAT_WINDOW: "clippy_maximize_chat_window",
@@ -16,6 +17,7 @@ export const IpcMessages = {
   LLAMA_SERVER_START: "clippy_llama_server_start",
   LLAMA_SERVER_STOP: "clippy_llama_server_stop",
   LLAMA_SERVER_CHAT: "clippy_llama_server_chat",
+  LLAMA_SERVER_CHAT_CHUNK: "clippy_llama_server_chat_chunk",
   LLAMA_SERVER_ABORT: "clippy_llama_server_abort",
 
   // State messages
