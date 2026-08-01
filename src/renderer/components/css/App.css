@@ -63,25 +63,34 @@ hr {
 
 .thinking-view {
   margin: 0 0 8px;
-  padding: 4px 6px;
-  color: #444;
-  background: #dfdfdf;
-  border: 1px solid;
-  border-color: #808080 #fff #fff #808080;
+  padding: 0;
+  color: #000;
+  background: #c0c0c0;
+  border: 0;
 }
 
 .thinking-view summary {
   cursor: pointer;
   font-weight: bold;
+  padding: 4px 6px;
+  background: #c0c0c0;
+  border: 2px solid;
+  border-color: #fff #404040 #404040 #fff;
   user-select: none;
+}
+
+.thinking-view[open] summary {
+  border-color: #404040 #fff #fff #404040;
 }
 
 .thinking-content {
   max-height: 180px;
-  margin-top: 6px;
-  padding-top: 4px;
+  margin: 4px 2px 2px;
+  padding: 6px;
   overflow: auto;
-  border-top: 1px dotted #808080;
+  background: #c0c0c0;
+  border: 2px solid;
+  border-color: #404040 #fff #fff #404040;
 }
 
 .thinking-content > :first-child,
