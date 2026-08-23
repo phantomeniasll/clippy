@@ -6,6 +6,7 @@ export type DefaultFont =
   | "Tahoma"
   | "System Default";
 export type DefaultFontSize = number;
+export type ReasoningEffort = "off" | "low" | "medium" | "xhigh";
 
 export interface SettingsState {
   selectedModel?: string;
@@ -16,6 +17,7 @@ export interface SettingsState {
   topK?: number;
   temperature?: number;
   useMtp?: boolean;
+  reasoningEffort?: ReasoningEffort;
   defaultFont: DefaultFont;
   defaultFontSize: number;
   disableAutoUpdate?: boolean;
@@ -47,6 +49,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   topK: 10,
   temperature: 0.7,
   useMtp: true,
+  reasoningEffort: "xhigh",
   defaultFont: "Tahoma",
   defaultFontSize: 12,
   disableAutoUpdate: false,

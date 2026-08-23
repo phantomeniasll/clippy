@@ -19,10 +19,19 @@ It is also meant to be a reference implementation of [@electron/llm](https://git
 - A current external `llama-server` backend for models that use multi-token
   prediction (MTP), while retaining the original `@electron/llm` backend for
   other GGUF models.
-- One-click Unsloth presets for Gemma 4 26B-A4B and Qwen3.6 35B-A3B, including
-  a smaller IQ2 quantization of Qwen3.6.
+- One-click Unsloth presets for Gemma 4 26B-A4B, Qwen3.6 35B-A3B, and
+  Qwen3.8-27B, with multiple quantization choices for both Qwen generations.
+- A Hugging Face model picker: paste an `owner/repository`, repository URL,
+  direct GGUF URL, or `owner/repository:quant`, then choose from the available
+  single-file GGUF quants by download size.
 - Streaming answers, collapsible reasoning output, generated/thinking token
   counts, and measured token throughput.
+- Explicit model load/unload controls so downloaded models do not consume
+  RAM or VRAM merely because Clippy starts.
+- Qwen3.8 reasoning presets (off, low, medium, and the official default
+  `xhigh`) with Qwen's recommended thinking/non-thinking samplers, retained
+  multi-turn reasoning, an 8K desktop context, Q8 KV cache, and optional
+  embedded MTP.
 - A Windows 95-style **New Chat** action and an answer-ready badge on Clippy.
 - Linux helper-window behavior: no regular taskbar entry and optional
   always-on-top Clippy/chat windows.
@@ -30,9 +39,18 @@ It is also meant to be a reference implementation of [@electron/llm](https://git
 MTP models need a recent `llama-server` exposed through the
 `CLIPPY_LLAMA_SERVER` environment variable. The companion
 [clippy-nix](https://github.com/phantomeniasll/clippy-nix) package supplies a
-Vulkan-enabled server and the Electron runtime automatically. The fork is
+ROCm-enabled server and the Electron runtime automatically. The fork is
 currently tested and packaged on x86_64 Linux; the inherited upstream build
 workflow still covers the other desktop targets.
+
+Qwen3.8 always uses that modern server, even when MTP is disabled. Its runtime
+preset enables Q8 KV caches, DeepSeek-style reasoning extraction, and the
+official Qwen sampler values. The MTP toggle adds embedded `draft-mtp` decoding
+with a three-token draft width. The Nix package builds the HIP/ROCm backend for
+the Radeon 860M (`gfx1152`) using ROCm 7.2's compatible `gfx1151` kernels and
+unified system memory. It keeps a 4 GiB desktop reserve while auto-fitting GPU
+layers. Set `CLIPPY_QWEN38_DEVICE=cpu` to force the CPU path, or adjust the
+reserve in MiB with `CLIPPY_QWEN38_FIT_TARGET`.
 
 ## Features
 
@@ -48,6 +66,18 @@ Countless little chat apps for local LLMs exist out there. Many of them are like
 ## Downloading More Models
 
 Clippy supports (thanks to Llama.cpp) most GGUF models. You can find GGUF models in plenty of online sources - I tend to go with models quantized by [TheBloke](https://huggingface.co/thebloke) or [Unsloth](https://huggingface.co/unsloth).
+
+Open **Settings → Model** and paste a Hugging Face repository name such as
+`unsloth/Qwen3.8-27B-GGUF` or its full URL. Clippy lists its runnable,
+single-file GGUF variants and their sizes; choose one and click **Add and
+download**. You can narrow the result directly with llama.cpp-style syntax,
+for example `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M`. A direct Hugging Face GGUF
+link also works. To use an existing download without copying it, choose **Use
+a local GGUF file** instead.
+
+The selected model can be loaded explicitly after its download completes.
+Clippy does not load models automatically at startup, so merely selecting one
+does not consume RAM or VRAM.
 
 ## Development
 

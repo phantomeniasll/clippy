@@ -4,15 +4,30 @@ import React, { useState } from "react";
 import { useSharedState } from "../contexts/SharedStateContext";
 import { clippyApi } from "../clippyApi";
 import { prettyDownloadSpeed } from "../helpers/convert-download-speed";
-import { ManagedModel } from "../../models";
+import { HuggingFaceModelFile, ManagedModel } from "../../models";
 import { isModelDownloading } from "../../helpers/model-helpers";
+import { useChat } from "../contexts/ChatContext";
 
 export const SettingsModel: React.FC = () => {
   const { models, settings } = useSharedState();
+  const {
+    isModelLoaded,
+    isModelLoading,
+    loadedModelName,
+    loadModel,
+    unloadModel,
+  } = useChat();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [huggingFaceSource, setHuggingFaceSource] = useState("");
+  const [huggingFaceFiles, setHuggingFaceFiles] = useState<
+    HuggingFaceModelFile[]
+  >([]);
+  const [selectedHuggingFaceFile, setSelectedHuggingFaceFile] = useState(0);
+  const [isResolvingHuggingFace, setIsResolvingHuggingFace] = useState(false);
+  const [huggingFaceError, setHuggingFaceError] = useState<string>();
 
   const columns: Array<Column> = [
-    { key: "default", header: "Loaded", width: 50 },
+    { key: "status", header: "Status", width: 65 },
     { key: "name", header: "Name" },
     {
       key: "size",
@@ -28,7 +43,12 @@ export const SettingsModel: React.FC = () => {
     const model = models?.[modelKey as keyof typeof models];
 
     return {
-      default: model?.name === settings.selectedModel ? "ｘ" : "",
+      status:
+        model?.name === loadedModelName && isModelLoaded
+          ? "Loaded"
+          : model?.name === settings.selectedModel
+            ? "Selected"
+            : "",
       name: model?.name,
       company: model?.company,
       size: model?.size,
@@ -41,6 +61,8 @@ export const SettingsModel: React.FC = () => {
     models?.[modelKeys[selectedIndex] as keyof typeof models] || null;
   const isDownloading = isModelDownloading(selectedModel);
   const isDefaultModel = selectedModel?.name === settings.selectedModel;
+  const isLoadedModel =
+    isModelLoaded && selectedModel?.name === loadedModelName;
 
   // Handlers
   // ---------------------------------------------------------------------------
@@ -55,6 +77,10 @@ export const SettingsModel: React.FC = () => {
   };
 
   const handleDeleteOrRemove = async () => {
+    if (isLoadedModel) {
+      await unloadModel();
+    }
+
     if (selectedModel?.imported) {
       await clippyApi.removeModelByName(selectedModel.name);
     } else if (selectedModel) {
@@ -64,8 +90,52 @@ export const SettingsModel: React.FC = () => {
 
   const handleMakeDefault = async () => {
     if (selectedModel) {
-      clippyApi.setState("settings.selectedModel", selectedModel.name);
+      if (loadedModelName && loadedModelName !== selectedModel.name) {
+        await unloadModel();
+      }
+
+      await clippyApi.setState("settings.selectedModel", selectedModel.name);
     }
+  };
+
+  const handleResolveHuggingFace = async () => {
+    setIsResolvingHuggingFace(true);
+    setHuggingFaceError(undefined);
+    setHuggingFaceFiles([]);
+
+    try {
+      const files = await clippyApi.resolveHuggingFaceSource(huggingFaceSource);
+      setHuggingFaceFiles(files);
+      setSelectedHuggingFaceFile(0);
+    } catch (error) {
+      setHuggingFaceError(getErrorMessage(error));
+    } finally {
+      setIsResolvingHuggingFace(false);
+    }
+  };
+
+  const handleAddHuggingFace = async () => {
+    const file = huggingFaceFiles[selectedHuggingFaceFile];
+    if (!file) return;
+
+    setHuggingFaceError(undefined);
+    try {
+      const name = await clippyApi.addModelFromHuggingFace(file);
+      const existingIndex = modelKeys.indexOf(name);
+      setSelectedIndex(existingIndex >= 0 ? existingIndex : modelKeys.length);
+      setHuggingFaceFiles([]);
+      setHuggingFaceSource("");
+    } catch (error) {
+      setHuggingFaceError(getErrorMessage(error));
+    }
+  };
+
+  const handleAddLocalFile = async () => {
+    const name = await clippyApi.addModelFromFile();
+    if (!name) return;
+
+    const existingIndex = modelKeys.indexOf(name);
+    setSelectedIndex(existingIndex >= 0 ? existingIndex : modelKeys.length);
   };
 
   return (
@@ -82,11 +152,67 @@ export const SettingsModel: React.FC = () => {
         </a>
       </p>
 
+      <fieldset style={{ marginBottom: 10 }}>
+        <legend>Add a Hugging Face model</legend>
+        <div className="field-row-stacked">
+          <label htmlFor="huggingFaceSource">
+            Repository name, link, or direct GGUF link
+          </label>
+          <input
+            id="huggingFaceSource"
+            placeholder="unsloth/Qwen3.8-27B-GGUF"
+            value={huggingFaceSource}
+            onChange={(event) => setHuggingFaceSource(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void handleResolveHuggingFace();
+            }}
+          />
+        </div>
+        <button
+          disabled={isResolvingHuggingFace || !huggingFaceSource.trim()}
+          onClick={() => void handleResolveHuggingFace()}
+          style={{ marginTop: 8 }}
+        >
+          {isResolvingHuggingFace ? "Looking up files..." : "Choose model size"}
+        </button>
+
+        {huggingFaceFiles.length > 0 && (
+          <div className="field-row-stacked" style={{ marginTop: 8 }}>
+            <label htmlFor="huggingFaceFile">
+              GGUF quant and download size
+            </label>
+            <select
+              id="huggingFaceFile"
+              value={selectedHuggingFaceFile}
+              onChange={(event) =>
+                setSelectedHuggingFaceFile(Number(event.target.value))
+              }
+            >
+              {huggingFaceFiles.map((file, index) => (
+                <option key={file.url} value={index}>
+                  {file.filename} — {formatModelSize(file.size)}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => void handleAddHuggingFace()}
+              style={{ marginTop: 8, alignSelf: "flex-start" }}
+            >
+              Add and download
+            </button>
+          </div>
+        )}
+
+        {huggingFaceError && (
+          <p style={{ color: "#800000" }}>{huggingFaceError}</p>
+        )}
+      </fieldset>
+
       <button
         style={{ marginBottom: 10 }}
-        onClick={() => clippyApi.addModelFromFile()}
+        onClick={() => void handleAddLocalFile()}
       >
-        Add model from file
+        Use a local GGUF file
       </button>
       <TableView
         columns={columns}
@@ -131,6 +257,20 @@ export const SettingsModel: React.FC = () => {
                     ? "Clippy uses this model"
                     : "Make Clippy use this model"}
                 </button>
+                {(isDefaultModel || isLoadedModel) && (
+                  <button
+                    disabled={isModelLoading}
+                    onClick={() =>
+                      void (isLoadedModel ? unloadModel() : loadModel())
+                    }
+                  >
+                    {isModelLoading
+                      ? "Loading..."
+                      : isLoadedModel
+                        ? "Unload Model"
+                        : "Load Model"}
+                  </button>
+                )}
                 <button onClick={handleDeleteOrRemove}>
                   {selectedModel?.imported ? "Remove" : "Delete"} Model
                 </button>
@@ -143,6 +283,17 @@ export const SettingsModel: React.FC = () => {
     </div>
   );
 };
+
+function formatModelSize(sizeInMegabytes: number): string {
+  if (!sizeInMegabytes) return "size unknown";
+  if (sizeInMegabytes < 1024) return `${sizeInMegabytes.toLocaleString()} MB`;
+  return `${(sizeInMegabytes / 1000).toFixed(1)} GB`;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 const SettingsModelDownload: React.FC<{
   model?: ManagedModel;

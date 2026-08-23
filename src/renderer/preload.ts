@@ -13,6 +13,7 @@ import {
 } from "../types/interfaces";
 import { DebugState } from "../debugState";
 import { BubbleView } from "./contexts/BubbleViewContext";
+import { HuggingFaceModelFile } from "../models";
 
 const clippyApi: ClippyApi = {
   // Window
@@ -49,8 +50,12 @@ const clippyApi: ClippyApi = {
     ipcRenderer.invoke(IpcMessages.REMOVE_MODEL_BY_NAME, name),
   deleteAllModels: () => ipcRenderer.invoke(IpcMessages.DELETE_ALL_MODELS),
   addModelFromFile: () => ipcRenderer.invoke(IpcMessages.ADD_MODEL_FROM_FILE),
-  startLlamaServer: (modelName: string) =>
-    ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_START, modelName),
+  resolveHuggingFaceSource: (source: string) =>
+    ipcRenderer.invoke(IpcMessages.RESOLVE_HUGGING_FACE_SOURCE, source),
+  addModelFromHuggingFace: (file: HuggingFaceModelFile) =>
+    ipcRenderer.invoke(IpcMessages.ADD_MODEL_FROM_HUGGING_FACE, file),
+  startLlamaServer: (modelName: string, enableMtp: boolean) =>
+    ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_START, modelName, enableMtp),
   stopLlamaServer: () => ipcRenderer.invoke(IpcMessages.LLAMA_SERVER_STOP),
   llamaServerChat: async (
     request: LlamaServerChatRequest,

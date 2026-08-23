@@ -24,6 +24,7 @@ export interface ChatWithMessages {
 export interface LlamaServerChatMessage {
   role: "user" | "assistant";
   content: string;
+  reasoning_content?: string;
 }
 
 export interface LlamaServerChatRequest {
@@ -32,6 +33,7 @@ export interface LlamaServerChatRequest {
   systemPrompt: string;
   topK?: number;
   temperature?: number;
+  reasoningEffort?: import("../sharedState").ReasoningEffort;
 }
 
 export interface LlamaServerChatChunk {

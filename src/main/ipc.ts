@@ -17,6 +17,7 @@ import { getClippyDebugInfo } from "./debug-clippy";
 import { getDebugManager } from "./debug";
 import { getLlamaServerManager } from "./llama-server";
 import { LlamaServerChatRequest } from "../types/interfaces";
+import { HuggingFaceModelFile } from "../models";
 
 export function setupIpcListeners() {
   // Window
@@ -46,8 +47,18 @@ export function setupIpcListeners() {
   ipcMain.handle(IpcMessages.ADD_MODEL_FROM_FILE, () =>
     getModelManager().addModelFromFile(),
   );
-  ipcMain.handle(IpcMessages.LLAMA_SERVER_START, (_, modelName: string) =>
-    getLlamaServerManager().start(modelName),
+  ipcMain.handle(IpcMessages.RESOLVE_HUGGING_FACE_SOURCE, (_, source: string) =>
+    getModelManager().resolveHuggingFaceSource(source),
+  );
+  ipcMain.handle(
+    IpcMessages.ADD_MODEL_FROM_HUGGING_FACE,
+    (_, file: HuggingFaceModelFile) =>
+      getModelManager().addModelFromHuggingFace(file),
+  );
+  ipcMain.handle(
+    IpcMessages.LLAMA_SERVER_START,
+    (_, modelName: string, enableMtp: boolean) =>
+      getLlamaServerManager().start(modelName, enableMtp),
   );
   ipcMain.handle(IpcMessages.LLAMA_SERVER_STOP, () =>
     getLlamaServerManager().stop(),

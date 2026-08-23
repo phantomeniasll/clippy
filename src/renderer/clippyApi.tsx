@@ -13,6 +13,7 @@ import { DebugState } from "../debugState";
 
 import type { BubbleView } from "./contexts/BubbleViewContext";
 import { Data } from "electron";
+import { HuggingFaceModelFile } from "../models";
 
 export type ClippyApi = {
   // Window
@@ -31,8 +32,10 @@ export type ClippyApi = {
   removeModelByName: (name: string) => Promise<void>;
   deleteModelByName: (name: string) => Promise<boolean>;
   deleteAllModels: () => Promise<boolean>;
-  addModelFromFile: () => Promise<void>;
-  startLlamaServer: (modelName: string) => Promise<void>;
+  addModelFromFile: () => Promise<string | undefined>;
+  resolveHuggingFaceSource: (source: string) => Promise<HuggingFaceModelFile[]>;
+  addModelFromHuggingFace: (file: HuggingFaceModelFile) => Promise<string>;
+  startLlamaServer: (modelName: string, enableMtp: boolean) => Promise<void>;
   stopLlamaServer: () => Promise<void>;
   llamaServerChat: (
     request: LlamaServerChatRequest,

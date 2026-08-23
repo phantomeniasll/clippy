@@ -5,6 +5,7 @@ import {
   ReactNode,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { Message } from "../components/Message";
 import { clippyApi, electronAi } from "../clippyApi";
@@ -39,6 +40,10 @@ export type ChatContextType = {
   status: ClippyNamedStatus;
   setStatus: (status: ClippyNamedStatus) => void;
   isModelLoaded: boolean;
+  isModelLoading: boolean;
+  loadedModelName?: string;
+  loadModel: () => Promise<void>;
+  unloadModel: () => Promise<void>;
   isChatWindowOpen: boolean;
   setIsChatWindowOpen: (isChatWindowOpen: boolean) => void;
   answerReady: boolean;
@@ -69,12 +74,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [animationKey, setAnimationKey] = useState<string>("");
   const [status, setStatus] = useState<ClippyNamedStatus>("welcome");
   const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(false);
+  const [loadedModelName, setLoadedModelName] = useState<string>();
   const { settings, models } = useContext(SharedStateContext);
   const debug = useDebugState();
   const [isChatWindowOpen, setIsChatWindowOpen] = useState(false);
   const [answerReady, setAnswerReady] = useState(false);
   const [hasPerformedStartupCheck, setHasPerformedStartupCheck] =
     useState(false);
+  const isLoadingModelRef = useRef(false);
 
   useEffect(() => {
     if (isChatWindowOpen) setAnswerReady(false);
@@ -103,26 +111,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const addMessage = useCallback(
     async (message: Message) => {
       setMessages((prevMessages) => [...prevMessages, message]);
-    },
-    [currentChatRecord, messages],
-  );
-
-  const selectChat = useCallback(
-    async (chatId: string) => {
-      try {
-        const chatWithMessages = await clippyApi.getChatWithMessages(chatId);
-
-        if (chatWithMessages) {
-          setMessages(chatWithMessages.messages);
-          setCurrentChatRecord(chatWithMessages.chat);
-        }
-
-        await loadModel(
-          messagesToInitialPrompts(chatWithMessages?.messages || []),
-        );
-      } catch (error) {
-        console.error(error);
-      }
     },
     [currentChatRecord, messages],
   );
@@ -156,13 +144,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [currentChatRecord, messages]);
 
   const loadModel = useCallback(
-    async (initialPrompts: LanguageModelPrompt[] = []) => {
+    async (
+      initialPrompts: LanguageModelPrompt[] = messagesToInitialPrompts(
+        messages,
+      ),
+    ) => {
+      if (isLoadingModelRef.current) return;
+      isLoadingModelRef.current = true;
+      setIsModelLoading(true);
       setIsModelLoaded(false);
+      setLoadedModelName(undefined);
 
       const selectedModel = settings.selectedModel
         ? models[settings.selectedModel]
         : undefined;
-      const useMtpBackend = Boolean(settings.useMtp && selectedModel?.mtpMode);
+      if (!selectedModel?.downloaded) {
+        isLoadingModelRef.current = false;
+        setIsModelLoading(false);
+        throw new Error("Select a downloaded model before loading it");
+      }
+      const useLlamaServerBackend = Boolean(selectedModel?.mtpMode);
 
       const options: LanguageModelCreateOptions = {
         modelAlias: settings.selectedModel,
@@ -175,16 +176,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       console.log("Loading model with options:", options);
 
       try {
-        if (useMtpBackend && settings.selectedModel) {
+        if (useLlamaServerBackend && settings.selectedModel) {
           await electronAi
             .destroy()
             .catch((_error: unknown): void => undefined);
-          await clippyApi.startLlamaServer(settings.selectedModel);
+          await clippyApi.startLlamaServer(
+            settings.selectedModel,
+            settings.useMtp !== false,
+          );
         } else {
           await clippyApi.stopLlamaServer();
           await electronAi.create(options);
         }
         setIsModelLoaded(true);
+        setLoadedModelName(selectedModel.name);
       } catch (error) {
         console.error(error);
 
@@ -194,6 +199,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           sender: "clippy",
           createdAt: Date.now(),
         });
+      } finally {
+        isLoadingModelRef.current = false;
+        setIsModelLoading(false);
       }
     },
     [
@@ -205,6 +213,43 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       models,
       messages,
     ],
+  );
+
+  const unloadModel = useCallback(async () => {
+    setIsModelLoading(true);
+    setIsModelLoaded(false);
+    setLoadedModelName(undefined);
+
+    try {
+      await Promise.all([
+        electronAi.destroy().catch((_error: unknown): void => undefined),
+        clippyApi.stopLlamaServer(),
+      ]);
+    } finally {
+      setIsModelLoading(false);
+    }
+  }, []);
+
+  const selectChat = useCallback(
+    async (chatId: string) => {
+      try {
+        const chatWithMessages = await clippyApi.getChatWithMessages(chatId);
+
+        if (chatWithMessages) {
+          setMessages(chatWithMessages.messages);
+          setCurrentChatRecord(chatWithMessages.chat);
+        }
+
+        if (isModelLoaded) {
+          await loadModel(
+            messagesToInitialPrompts(chatWithMessages?.messages || []),
+          );
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [isModelLoaded, loadModel],
   );
 
   const deleteChat = useCallback(
@@ -252,33 +297,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, [messages]);
 
-  // Load the model when the selected model changes
-  // or when the backend and generation settings change
+  // Loading is deliberately user-controlled so starting Clippy does not fill
+  // RAM/VRAM. Selecting another model unloads the current one, but never loads
+  // the replacement automatically.
   useEffect(() => {
     if (debug?.simulateDownload) {
       setIsModelLoaded(true);
+      setLoadedModelName(settings.selectedModel);
       return;
     }
 
-    if (settings.selectedModel) {
-      loadModel();
-    } else if (!settings.selectedModel && isModelLoaded) {
-      Promise.all([electronAi.destroy(), clippyApi.stopLlamaServer()])
-        .then(() => {
-          setIsModelLoaded(false);
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+    if (loadedModelName && loadedModelName !== settings.selectedModel) {
+      void unloadModel().catch((error) => {
+        console.error(error);
+      });
     }
   }, [
+    debug?.simulateDownload,
+    loadedModelName,
     settings.selectedModel,
-    settings.systemPrompt,
-    settings.topK,
-    settings.temperature,
-    settings.useMtp,
-    models[settings.selectedModel || ""]?.downloaded,
-    models[settings.selectedModel || ""]?.mtpMode,
+    unloadModel,
   ]);
 
   // If selectedModel is undefined or not available, set it to the first downloaded model
@@ -368,6 +406,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     status,
     setStatus,
     isModelLoaded,
+    isModelLoading,
+    loadedModelName,
+    loadModel,
+    unloadModel,
     isChatWindowOpen,
     setIsChatWindowOpen,
     answerReady,

@@ -56,6 +56,10 @@ export class StateManager {
       settings.useMtp = true;
     }
 
+    if (settings.reasoningEffort === undefined) {
+      settings.reasoningEffort = "xhigh";
+    }
+
     this.store.set("settings", settings);
   }
 
@@ -99,6 +103,10 @@ export class StateManager {
           : undefined;
         models[model.name].mtpMode = model.mtpMode;
         models[model.name].mtpDraftTokens = model.mtpDraftTokens;
+        models[model.name].runtimePreset = model.runtimePreset;
+        models[model.name].custom = model.custom;
+        models[model.name].sourceRepo = model.sourceRepo;
+        models[model.name].storageFileName = model.storageFileName;
         models[model.name].downloaded = getModelManager().getIsModelDownloaded(
           models[model.name],
         );

@@ -2,19 +2,20 @@ import { clippyApi } from "../clippyApi";
 import { useSharedState } from "../contexts/SharedStateContext";
 
 interface ErrorLoadModelMessageContentProps {
-  error: string;
+  error: unknown;
 }
 
 export const ErrorLoadModelMessageContent: React.FC<
   ErrorLoadModelMessageContentProps
 > = ({ error }) => {
   const { settings } = useSharedState();
+  const errorText = formatError(error);
 
   const handleCopyDebugInfo = async () => {
     clippyApi.clipboardWrite({
       text: JSON.stringify(
         {
-          error,
+          error: errorText,
           settings,
           state: await clippyApi.getDebugInfo(),
         },
@@ -40,7 +41,21 @@ export const ErrorLoadModelMessageContent: React.FC<
       </p>
       <button onClick={handleCopyDebugInfo}>Copy error and debug info</button>
       <p>The error was:</p>
-      <pre>{`${error}`}</pre>
+      <pre>{errorText}</pre>
     </div>
   );
 };
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack || error.message;
+  }
+
+  if (typeof error === "string") return error;
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}

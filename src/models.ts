@@ -10,6 +10,10 @@ export interface Model {
   draftUrl?: string;
   mtpMode?: "embedded" | "draft";
   mtpDraftTokens?: number;
+  runtimePreset?: "qwen3.8";
+  custom?: boolean;
+  sourceRepo?: string;
+  storageFileName?: string;
 }
 
 export interface ManagedModel extends Model {
@@ -21,6 +25,13 @@ export interface ManagedModel extends Model {
 }
 
 export type ModelState = Record<string, ManagedModel>;
+
+export interface HuggingFaceModelFile {
+  repoId: string;
+  filename: string;
+  size: number;
+  url: string;
+}
 
 export const BUILT_IN_MODELS: Model[] = [
   {
@@ -57,6 +68,30 @@ export const BUILT_IN_MODELS: Model[] = [
     description:
       "The smaller Unsloth IQ2_M quant of Qwen3.6 35B-A3B. It is roughly half the Q4 download size and includes the same MTP head, trading some quality for a much lower memory requirement.",
     homepage: "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
+  },
+  {
+    name: "Qwen3.8 (27B, Q4 MTP)",
+    company: "Qwen",
+    size: 16500,
+    url: "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_M.gguf",
+    mtpMode: "embedded",
+    mtpDraftTokens: 2,
+    runtimePreset: "qwen3.8",
+    description:
+      "Qwen3.8's dense 27B vision-language model in Unsloth's balanced Dynamic Q4_K_M quant. It includes embedded multi-token prediction and retains the stronger tool-calling behavior preferred for agentic and MCP-backed workflows.",
+    homepage: "https://huggingface.co/Qwen/Qwen3.8-27B",
+  },
+  {
+    name: "Qwen3.8 (27B, Q3 MTP)",
+    company: "Qwen",
+    size: 13100,
+    url: "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q3_K_XL.gguf",
+    mtpMode: "embedded",
+    mtpDraftTokens: 2,
+    runtimePreset: "qwen3.8",
+    description:
+      "The smaller Unsloth Dynamic Q3 quant of Qwen3.8-27B. It includes embedded multi-token prediction and lowers the model download to about 13.1 GB, with some quality loss compared with Q4.",
+    homepage: "https://huggingface.co/Qwen/Qwen3.8-27B",
   },
   {
     name: "Gemma 3 (1B)",

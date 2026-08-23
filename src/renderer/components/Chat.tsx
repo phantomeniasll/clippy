@@ -32,10 +32,10 @@ export function Chat({ style }: ChatProps) {
   const selectedModel = settings.selectedModel
     ? models[settings.selectedModel]
     : undefined;
-  const useMtpBackend = Boolean(settings.useMtp && selectedModel?.mtpMode);
+  const useLlamaServerBackend = Boolean(selectedModel?.mtpMode);
 
   const handleAbortMessage = () => {
-    if (useMtpBackend) {
+    if (useLlamaServerBackend) {
       void clippyApi.abortLlamaServerRequest(lastRequestUUID);
     } else {
       electronAi.abortRequest(lastRequestUUID);
@@ -93,7 +93,7 @@ export function Chat({ style }: ChatProps) {
         setStreamingMessageContent(filteredContent);
       };
 
-      if (useMtpBackend) {
+      if (useLlamaServerBackend) {
         const response = await clippyApi.llamaServerChat(
           {
             requestUUID,
@@ -103,6 +103,7 @@ export function Chat({ style }: ChatProps) {
             ),
             topK: settings.topK,
             temperature: settings.temperature,
+            reasoningEffort: settings.reasoningEffort,
             messages: [
               ...messages
                 .filter((item) => item.content)
@@ -112,6 +113,10 @@ export function Chat({ style }: ChatProps) {
                       ? ("assistant" as const)
                       : ("user" as const),
                   content: item.content || "",
+                  reasoning_content:
+                    item.sender === "clippy"
+                      ? item.reasoningContent || undefined
+                      : undefined,
                 })),
               { role: "user", content: message },
             ],

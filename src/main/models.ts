@@ -3,11 +3,22 @@ import path from "path";
 import fs from "fs";
 import { getLogger } from "./logger";
 
-import { ManagedModel, ModelState, Model, BUILT_IN_MODELS } from "../models";
+import {
+  ManagedModel,
+  ModelState,
+  Model,
+  BUILT_IN_MODELS,
+  HuggingFaceModelFile,
+} from "../models";
 import { DownloadState } from "../sharedState";
 import { getStateManager } from "./state";
 import { MockDownloadItem } from "./MockDownloadItem";
 import { getDebugManager } from "./debug";
+import {
+  getHuggingFaceStorageFileName,
+  resolveHuggingFaceSource,
+  validateHuggingFaceModelFile,
+} from "./huggingface";
 
 class ModelManager {
   private downloadItems: Record<string, DownloadItem | MockDownloadItem> = {};
@@ -53,6 +64,9 @@ class ModelManager {
 
     if (!model) {
       throw new Error(`Model not found: ${name}`);
+    }
+    if (!model.url) {
+      throw new Error(`Model does not have a download URL: ${name}`);
     }
 
     // Cancel existing download if any
@@ -149,6 +163,12 @@ class ModelManager {
       }
     }
 
+    if (model.custom) {
+      const models = { ...this.models };
+      delete models[name];
+      this.models = models;
+    }
+
     this.pollRendererModelState();
     return true;
   }
@@ -241,6 +261,10 @@ class ModelManager {
         draftPath: model.draftPath,
         mtpMode: model.mtpMode,
         mtpDraftTokens: model.mtpDraftTokens,
+        runtimePreset: model.runtimePreset,
+        custom: model.custom,
+        sourceRepo: model.sourceRepo,
+        storageFileName: model.storageFileName,
         imported: model.imported,
         downloaded: this.getIsModelDownloaded(model),
         downloadState,
@@ -292,11 +316,12 @@ class ModelManager {
 
       if (result.canceled || result.filePaths.length === 0) {
         getLogger().info("No file selected for adding model.");
-        return;
+        return undefined;
       }
 
       const filePath = result.filePaths[0];
       const fileName = path.basename(filePath);
+      const qwen38Model = isQwen38Model(fileName);
 
       if (this.models[fileName]) {
         const overwrite = await dialog.showMessageBox({
@@ -309,7 +334,7 @@ class ModelManager {
 
         if (overwrite.response !== 0) {
           getLogger().info("User canceled overwriting the existing model.");
-          return;
+          return undefined;
         }
       }
 
@@ -319,16 +344,78 @@ class ModelManager {
         path: filePath,
         description: `Imported GGUF model from ${filePath}.`,
         imported: true,
+        ...(qwen38Model
+          ? {
+              mtpMode: "embedded" as const,
+              mtpDraftTokens: 2,
+              runtimePreset: "qwen3.8" as const,
+            }
+          : {}),
       };
 
       const models = { ...this.models, [fileName]: model };
       getStateManager().store.set("models", models);
+      getStateManager().store.set("settings.selectedModel", model.name);
       this.pollRendererModelState();
 
       getLogger().info(`Model added from file: ${filePath}`);
+      return model.name;
     } catch (error) {
       getLogger().error("Error adding model from file", error);
+      throw error;
     }
+  }
+
+  /**
+   * Lists runnable GGUF files from a Hugging Face repository or file URL.
+   */
+  public async resolveHuggingFaceSource(source: string) {
+    return resolveHuggingFaceSource(source);
+  }
+
+  /**
+   * Adds a selected Hugging Face GGUF to Clippy and starts its download.
+   */
+  public async addModelFromHuggingFace(
+    selectedFile: HuggingFaceModelFile,
+  ): Promise<string> {
+    const file = validateHuggingFaceModelFile(selectedFile);
+    const name = `${file.repoId}: ${file.filename}`;
+    const qwen38Model = isQwen38Model(file.repoId, file.filename);
+    const qwen36MtpModel = /qwen3\.6.+mtp-gguf$/i.test(file.repoId);
+
+    const model: ManagedModel = {
+      name,
+      company: file.repoId.split("/")[0],
+      size: file.size,
+      url: file.url,
+      path: "",
+      custom: true,
+      sourceRepo: file.repoId,
+      storageFileName: getHuggingFaceStorageFileName(
+        file.repoId,
+        file.filename,
+      ),
+      description: `GGUF model selected from ${file.repoId}.`,
+      homepage: `https://huggingface.co/${file.repoId}`,
+      ...(qwen38Model
+        ? {
+            mtpMode: "embedded" as const,
+            mtpDraftTokens: 2,
+            runtimePreset: "qwen3.8" as const,
+          }
+        : qwen36MtpModel
+          ? { mtpMode: "embedded" as const, mtpDraftTokens: 2 }
+          : {}),
+    };
+    model.path = getModelPath(model);
+
+    this.models = { ...this.models, [name]: model };
+    getStateManager().store.set("settings.selectedModel", name);
+    this.pollRendererModelState();
+    await this.downloadModelByName(name);
+
+    return name;
   }
 
   /**
@@ -344,7 +431,9 @@ class ModelManager {
     const urlStr = urlChain[0];
     const modelKey = Object.keys(this.models).find((k) => {
       const model = this.models[k];
-      return model.url === urlStr || model.draftUrl === urlStr;
+      return [model.url, model.draftUrl].some(
+        (modelUrl) => modelUrl && urlChain.includes(modelUrl),
+      );
     });
     const model = this.models[modelKey];
 
@@ -357,7 +446,9 @@ class ModelManager {
     }
 
     // Check if there's already a download in progress for this model
-    const isDraft = model.draftUrl === urlStr;
+    const isDraft = Boolean(
+      model.draftUrl && urlChain.includes(model.draftUrl),
+    );
     const downloadKey = isDraft ? `${model.name}:draft` : model.name;
     const existingDownload = this.downloadItems[downloadKey];
     if (existingDownload && existingDownload.getState() === "progressing") {
@@ -496,5 +587,11 @@ export function getModelDraftPath(model: Model): string {
  * @returns {string}
  */
 export function getModelFileName(model: Model): string {
+  if (model.storageFileName) return model.storageFileName;
+  if (!model.url) throw new Error(`Model ${model.name} does not have a URL`);
   return path.basename(new URL(model.url).pathname);
+}
+
+function isQwen38Model(...values: string[]): boolean {
+  return values.some((value) => /qwen3[._-]?8[-_.]?27b/i.test(value));
 }

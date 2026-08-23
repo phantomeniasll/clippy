@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { clippyApi } from "../clippyApi";
 import { useSharedState } from "../contexts/SharedStateContext";
 import { DEFAULT_SYSTEM_PROMPT } from "../../sharedState";
+import type { ReasoningEffort } from "../../sharedState";
 import { Checkbox } from "./Checkbox";
 
 export const SettingsParameters: React.FC = () => {
@@ -12,6 +13,8 @@ export const SettingsParameters: React.FC = () => {
   const [tempTopK, setTempTopK] = useState(settings.topK);
   const [tempTemperature, setTempTemperature] = useState(settings.temperature);
   const [tempUseMtp, setTempUseMtp] = useState(settings.useMtp ?? true);
+  const [tempReasoningEffort, setTempReasoningEffort] =
+    useState<ReasoningEffort>(settings.reasoningEffort ?? "xhigh");
 
   // Update settings on unmount so that the user editing preferences
   // doesn't rapidly reload the model
@@ -21,7 +24,8 @@ export const SettingsParameters: React.FC = () => {
         tempSystemPrompt !== settings.systemPrompt ||
         tempTopK !== settings.topK ||
         tempTemperature !== settings.temperature ||
-        tempUseMtp !== settings.useMtp;
+        tempUseMtp !== settings.useMtp ||
+        tempReasoningEffort !== settings.reasoningEffort;
 
       if (isNewSettings) {
         clippyApi.setState("settings", {
@@ -30,10 +34,17 @@ export const SettingsParameters: React.FC = () => {
           topK: tempTopK,
           temperature: tempTemperature,
           useMtp: tempUseMtp,
+          reasoningEffort: tempReasoningEffort,
         });
       }
     };
-  }, [tempSystemPrompt, tempTopK, tempTemperature, tempUseMtp]);
+  }, [
+    tempSystemPrompt,
+    tempTopK,
+    tempTemperature,
+    tempUseMtp,
+    tempReasoningEffort,
+  ]);
 
   const handleSystemPromptReset = useCallback(() => {
     const confirmed = window.confirm(
@@ -79,8 +90,28 @@ export const SettingsParameters: React.FC = () => {
           onChange={setTempUseMtp}
         />
         <p>
-          Uses the modern Vulkan llama.cpp backend for compatible Gemma 4 and
-          Qwen3.6 models. Other models continue to use Clippy's normal backend.
+          Compatible Gemma 4, Qwen3.6, and Qwen3.8 models always use the modern
+          Vulkan llama.cpp backend. This option controls whether their MTP
+          acceleration is enabled.
+        </p>
+        <div className="field-row">
+          <label htmlFor="reasoningEffort">Reasoning effort</label>
+          <select
+            id="reasoningEffort"
+            value={tempReasoningEffort}
+            onChange={(event) =>
+              setTempReasoningEffort(event.target.value as ReasoningEffort)
+            }
+          >
+            <option value="off">Direct (thinking off)</option>
+            <option value="low">Low (fast)</option>
+            <option value="medium">Medium (balanced)</option>
+            <option value="xhigh">Extra high (thorough)</option>
+          </select>
+        </div>
+        <p>
+          Qwen3.8 applies these official reasoning presets per request. Extra
+          high is the model's default.
         </p>
         <div className="field-row">
           <label htmlFor="topK">Top K</label>
