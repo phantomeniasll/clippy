@@ -35,6 +35,16 @@ export interface HuggingFaceModelFile {
 
 export const BUILT_IN_MODELS: Model[] = [
   {
+    name: "Inkling 2 Mini (26B, Q4)",
+    company: "Thinking Machines Lab",
+    size: 16600,
+    url: "https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/Mainline_Support/Inkling-2-Mini-UD-Q4_K_M.gguf_file",
+    storageFileName: "Inkling-2-Mini-UD-Q4_K_M.gguf",
+    description:
+      "Unsloth's 16.6 GB Q4_K_M quant. Loading this model requires mainline llama.cpp b12611 or newer.",
+    homepage: "https://huggingface.co/unsloth/Inkling-2-Mini-GGUF",
+  },
+  {
     name: "Gemma 4 (26B A4B, Q4)",
     company: "Google",
     size: 16900,
